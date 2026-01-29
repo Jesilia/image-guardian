@@ -369,6 +369,8 @@ export function saveLedgerEntry(entry: LedgerEntry): void {
   const ledger = getLedger();
   ledger.unshift(entry);
   localStorage.setItem('watermark_ledger', JSON.stringify(ledger));
+  // Dispatch storage event for real-time updates
+  window.dispatchEvent(new Event('storage'));
 }
 
 /**
