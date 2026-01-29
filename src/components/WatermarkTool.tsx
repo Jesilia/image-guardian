@@ -178,6 +178,36 @@ export function WatermarkTool() {
               </p>
             </label>
           </div>
+          
+          {/* URL Input */}
+          <div className="mt-4 flex gap-2">
+            <Input
+              id="image-url-input"
+              placeholder="Or enter image URL..."
+              className="bg-input/50 border-border/50 focus:border-primary"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const input = e.target as HTMLInputElement;
+                  if (input.value.trim()) {
+                    handleImageUrl(input.value.trim());
+                    input.value = '';
+                  }
+                }
+              }}
+            />
+            <Button
+              variant="outline"
+              onClick={() => {
+                const input = document.getElementById('image-url-input') as HTMLInputElement;
+                if (input?.value.trim()) {
+                  handleImageUrl(input.value.trim());
+                  input.value = '';
+                }
+              }}
+            >
+              Load
+            </Button>
+          </div>
 
           {/* Prompt field for metadata */}
           <div className="mt-4">
