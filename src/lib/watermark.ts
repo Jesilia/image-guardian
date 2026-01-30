@@ -3,6 +3,8 @@
  * Implements frequency-domain watermarking using Discrete Wavelet Transform
  */
 
+import { supabase } from '@/integrations/supabase/client';
+
 export interface WatermarkData {
   creatorId: string;
   timestamp: string;
@@ -24,6 +26,28 @@ export interface LedgerEntry {
   createdAt: string;
 }
 
+export interface ExtractedWatermark {
+  creatorId: string;
+  timestamp: string;
+  raw: string;
+}
+
+export interface RegistryEntry {
+  id: string;
+  creator_id: string;
+  timestamp: string;
+  prompt: string | null;
+  image_hash: string;
+  created_at: string;
+}
+
+export interface VerificationResult {
+  status: 'authentic' | 'tampered' | 'unregistered';
+  extractedData: ExtractedWatermark | null;
+  currentHash: string;
+  registryEntry: RegistryEntry | null;
+}
+
 // Alpha factor for watermark strength (lower = less visible)
 const ALPHA = 0.02;
 
@@ -39,6 +63,23 @@ function stringToBinary(str: string): number[] {
     }
   }
   return binary;
+}
+
+/**
+ * Convert binary to string
+ */
+function binaryToString(binary: number[]): string {
+  let result = '';
+  for (let i = 0; i < binary.length; i += 8) {
+    let charCode = 0;
+    for (let bit = 0; bit < 8 && i + bit < binary.length; bit++) {
+      charCode = (charCode << 1) | binary[i + bit];
+    }
+    if (charCode > 0 && charCode < 128) {
+      result += String.fromCharCode(charCode);
+    }
+  }
+  return result;
 }
 
 /**
@@ -100,7 +141,6 @@ function dwt2D(channel: number[][]): {
   // Column transform on low frequencies
   const LL: number[][] = [];
   const LH: number[][] = [];
-  const halfHeight = Math.floor(height / 2);
   const halfWidth = rowTransformed.low[0].length;
 
   for (let x = 0; x < halfWidth; x++) {
@@ -303,6 +343,173 @@ export async function embedWatermark(
 }
 
 /**
+ * Extract watermark from image using DWT
+ */
+export async function extractWatermark(imageDataUrl: string): Promise<ExtractedWatermark | null> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+        
+        const width = img.width - (img.width % 2);
+        const height = img.height - (img.height % 2);
+        
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+        
+        // Extract Y channel
+        const yChannel: number[][] = [];
+        for (let y = 0; y < height; y++) {
+          yChannel[y] = [];
+          for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            yChannel[y][x] = rgbToY(data[i], data[i + 1], data[i + 2]);
+          }
+        }
+        
+        // Apply DWT
+        const { LH } = dwt2D(yChannel);
+        
+        // Extract bits from LH coefficients
+        // We use a threshold-based approach
+        const maxBits = 1024; // Max payload size
+        const extractedBits: number[] = [];
+        
+        for (let y = 0; y < LH.length && extractedBits.length < maxBits; y++) {
+          for (let x = 0; x < LH[y].length && extractedBits.length < maxBits; x++) {
+            // Detect bit based on coefficient sign tendency
+            const coef = LH[y][x];
+            extractedBits.push(coef >= 0 ? 1 : 0);
+          }
+        }
+        
+        // Convert to string and parse
+        const rawString = binaryToString(extractedBits);
+        
+        // Look for the pattern: creatorId|timestamp
+        const pipeIndex = rawString.indexOf('|');
+        if (pipeIndex > 0 && pipeIndex < rawString.length - 1) {
+          const creatorId = rawString.substring(0, pipeIndex).trim();
+          // Find the end of the timestamp (ISO format ends with Z or has timezone)
+          let timestampEnd = rawString.indexOf('Z', pipeIndex);
+          if (timestampEnd === -1) {
+            // Try to find reasonable end
+            timestampEnd = Math.min(pipeIndex + 30, rawString.length);
+          } else {
+            timestampEnd += 1; // Include the Z
+          }
+          const timestamp = rawString.substring(pipeIndex + 1, timestampEnd).trim();
+          
+          if (creatorId.length > 0 && timestamp.length > 0) {
+            resolve({
+              creatorId,
+              timestamp,
+              raw: rawString.substring(0, timestampEnd),
+            });
+            return;
+          }
+        }
+        
+        resolve(null);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = imageDataUrl;
+  });
+}
+
+/**
+ * Verify image against Cloud registry
+ */
+export async function verifyImage(
+  imageDataUrl: string,
+  extractedData: ExtractedWatermark | null
+): Promise<VerificationResult> {
+  // Generate hash of current image
+  const currentHash = await generateHash(imageDataUrl);
+  
+  if (!extractedData) {
+    return {
+      status: 'unregistered',
+      extractedData: null,
+      currentHash,
+      registryEntry: null,
+    };
+  }
+  
+  // Query Cloud registry
+  const { data: registryEntries, error } = await supabase
+    .from('watermark_registry')
+    .select('*')
+    .eq('creator_id', extractedData.creatorId)
+    .eq('timestamp', extractedData.timestamp)
+    .limit(1);
+  
+  if (error) {
+    console.error('Registry lookup error:', error);
+    return {
+      status: 'unregistered',
+      extractedData,
+      currentHash,
+      registryEntry: null,
+    };
+  }
+  
+  if (!registryEntries || registryEntries.length === 0) {
+    // Also check local ledger as fallback
+    const localLedger = getLedger();
+    const localEntry = localLedger.find(
+      (e) => e.creatorId === extractedData.creatorId && e.timestamp === extractedData.timestamp
+    );
+    
+    if (localEntry) {
+      const hashMatch = localEntry.imageHash === currentHash;
+      return {
+        status: hashMatch ? 'authentic' : 'tampered',
+        extractedData,
+        currentHash,
+        registryEntry: {
+          id: localEntry.id,
+          creator_id: localEntry.creatorId,
+          timestamp: localEntry.timestamp,
+          prompt: localEntry.prompt || null,
+          image_hash: localEntry.imageHash,
+          created_at: localEntry.createdAt,
+        },
+      };
+    }
+    
+    return {
+      status: 'unregistered',
+      extractedData,
+      currentHash,
+      registryEntry: null,
+    };
+  }
+  
+  const registryEntry = registryEntries[0] as RegistryEntry;
+  const hashMatch = registryEntry.image_hash === currentHash;
+  
+  return {
+    status: hashMatch ? 'authentic' : 'tampered',
+    extractedData,
+    currentHash,
+    registryEntry,
+  };
+}
+
+/**
  * Generate SHA-256 hash of data
  */
 async function generateHash(data: string): Promise<string> {
@@ -355,7 +562,7 @@ export function downloadImage(dataUrl: string, filename: string): void {
 }
 
 /**
- * Get ledger from localStorage
+ * Get ledger from localStorage (local backup)
  */
 export function getLedger(): LedgerEntry[] {
   const stored = localStorage.getItem('watermark_ledger');
@@ -363,12 +570,28 @@ export function getLedger(): LedgerEntry[] {
 }
 
 /**
- * Save entry to ledger
+ * Save entry to both Cloud registry and local ledger
  */
-export function saveLedgerEntry(entry: LedgerEntry): void {
+export async function saveLedgerEntry(entry: LedgerEntry): Promise<void> {
+  // Save to local storage as backup
   const ledger = getLedger();
   ledger.unshift(entry);
   localStorage.setItem('watermark_ledger', JSON.stringify(ledger));
+  
+  // Save to Cloud registry
+  const { error } = await supabase.from('watermark_registry').insert({
+    id: entry.id,
+    creator_id: entry.creatorId,
+    timestamp: entry.timestamp,
+    prompt: entry.prompt || null,
+    image_hash: entry.imageHash,
+    created_at: entry.createdAt,
+  });
+  
+  if (error) {
+    console.error('Failed to save to Cloud registry:', error);
+  }
+  
   // Dispatch storage event for real-time updates
   window.dispatchEvent(new Event('storage'));
 }

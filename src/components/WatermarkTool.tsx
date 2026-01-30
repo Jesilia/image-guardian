@@ -238,7 +238,7 @@ export function WatermarkTool() {
 
       {/* Image Preview */}
       {sourceImage && (
-        <div className="glass-panel p-4 neon-border animate-fade-in">
+        <div className="glass-panel p-4 border-primary/30 animate-fade-in">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-foreground/80">Source Image</h3>
             <Button
@@ -268,7 +268,7 @@ export function WatermarkTool() {
         <Button
           onClick={handleWatermark}
           disabled={isProcessing || !creatorId.trim()}
-          className="w-full h-14 text-lg font-semibold bg-primary hover:bg-primary/90 text-primary-foreground animate-glow-pulse"
+          className="w-full h-14 text-lg font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {isProcessing ? (
             <>
@@ -287,9 +287,9 @@ export function WatermarkTool() {
       {/* Result */}
       {result && (
         <div className="space-y-4 animate-slide-up">
-          <div className="glass-panel p-4 neon-border">
+          <div className="glass-panel p-4 border-primary/30">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-primary neon-text">Watermarked Image</h3>
+              <h3 className="text-sm font-medium text-primary">Watermarked Image</h3>
               <Button onClick={handleDownload} size="sm" className="bg-primary hover:bg-primary/90">
                 <Download className="w-4 h-4 mr-2" />
                 Download
@@ -307,7 +307,7 @@ export function WatermarkTool() {
           {/* Audit Info */}
           <Card className="glass-panel p-4">
             <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center">
-              <Shield className="w-4 h-4 mr-2 text-neon-green" />
+              <Shield className="w-4 h-4 mr-2 text-primary" />
               Audit Trail
             </h4>
             <div className="space-y-2 font-mono text-xs">

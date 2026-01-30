@@ -14,7 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      watermark_registry: {
+        Row: {
+          created_at: string
+          creator_id: string
+          id: string
+          image_hash: string
+          prompt: string | null
+          timestamp: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          id?: string
+          image_hash: string
+          prompt?: string | null
+          timestamp: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          id?: string
+          image_hash?: string
+          prompt?: string | null
+          timestamp?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
