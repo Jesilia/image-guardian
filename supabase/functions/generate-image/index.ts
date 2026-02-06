@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,39 +13,9 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.log("No authorization header provided");
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    
-    if (claimsError || !claimsData?.claims) {
-      console.log("Invalid token:", claimsError?.message);
-      return new Response(
-        JSON.stringify({ error: "Invalid authentication" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = claimsData.claims.sub;
-    console.log("Authenticated user:", userId);
-
     const { prompt } = await req.json();
     
-    // Enhanced input validation
+    // Input validation
     if (!prompt || typeof prompt !== 'string') {
       return new Response(
         JSON.stringify({ error: "Prompt is required" }),
@@ -74,7 +43,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating image for user:", userId, "prompt length:", trimmedPrompt.length);
+    console.log("Generating image, prompt length:", trimmedPrompt.length);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -114,7 +83,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log("AI response received for user:", userId);
+    console.log("AI response received");
 
     const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     const textContent = data.choices?.[0]?.message?.content || "";
