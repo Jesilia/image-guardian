@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Shield, ShieldCheck, Loader2, ImageIcon, Download, Check, Copy } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Send, Shield, ShieldCheck, Loader2, ImageIcon, Download, Check, Copy, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { embedWatermark, downloadImage } from '@/lib/watermark';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Message {
   id: string;
@@ -22,21 +23,20 @@ interface Message {
 }
 
 export default function ImageChat() {
+  const { user, session, loading, signOut } = useAuth();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [autoWatermark, setAutoWatermark] = useState(true);
-  const [username, setUsername] = useState('');
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Load username from localStorage or prompt
-    const saved = localStorage.getItem('imageGuardian_username');
-    if (saved) {
-      setUsername(saved);
+    if (!loading && !user) {
+      navigate('/auth');
     }
-  }, []);
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -44,19 +44,14 @@ export default function ImageChat() {
     }
   }, [messages]);
 
-  const saveUsername = (name: string) => {
-    setUsername(name);
-    localStorage.setItem('imageGuardian_username', name);
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    if (!username.trim()) {
-      toast.error('Please set your username first');
-      return;
-    }
+    if (!input.trim() || isLoading || !user) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -70,7 +65,7 @@ export default function ImageChat() {
     setIsLoading(true);
 
     try {
-      // Call the edge function
+      // Call the edge function with auth token
       const { data, error } = await supabase.functions.invoke('generate-image', {
         body: { prompt: userMessage.content },
       });
@@ -82,12 +77,12 @@ export default function ImageChat() {
       let isWatermarked = false;
       let watermarkHash: string | undefined;
 
-      // Apply watermark if enabled
+      // Apply watermark if enabled - use authenticated user ID
       if (autoWatermark && finalImageUrl) {
         try {
           const timestamp = new Date().toISOString();
           const result = await embedWatermark(finalImageUrl, {
-            creatorId: username,
+            creatorId: user.id, // Use authenticated user ID
             timestamp,
             prompt: userMessage.content,
           });
@@ -96,9 +91,9 @@ export default function ImageChat() {
           isWatermarked = true;
           watermarkHash = result.hash;
 
-          // Save to registry
+          // Save to registry - RLS ensures only authenticated users can insert
           await supabase.from('watermark_registry').insert({
-            creator_id: username,
+            creator_id: user.id, // Server validates this matches auth.uid()
             timestamp,
             prompt: userMessage.content,
             image_hash: result.hash,
@@ -142,7 +137,7 @@ export default function ImageChat() {
     }
   };
 
-  const handleDownload = (imageUrl: string, prompt: string) => {
+  const handleDownload = (imageUrl: string) => {
     const filename = `generated_${Date.now()}.png`;
     downloadImage(imageUrl, filename);
     toast.success('Image downloaded');
@@ -154,6 +149,18 @@ export default function ImageChat() {
     toast.success('Hash copied');
     setTimeout(() => setCopiedHash(null), 2000);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -171,7 +178,7 @@ export default function ImageChat() {
           </div>
           
           <div className="flex items-center gap-4">
-            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link to="/verify" className="text-sm text-muted-foreground hover:text-foreground">
               Verify Images
             </Link>
             
@@ -186,39 +193,14 @@ export default function ImageChat() {
                 Auto-watermark
               </Label>
             </div>
+
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-1" />
+              Sign Out
+            </Button>
           </div>
         </div>
       </header>
-
-      {/* Username Setup */}
-      {!username && (
-        <div className="p-4 bg-muted/50 border-b border-border">
-          <div className="max-w-4xl mx-auto">
-            <Card className="p-4">
-              <Label className="text-sm font-medium">Set your username (embedded in watermarks)</Label>
-              <div className="flex gap-2 mt-2">
-                <Input
-                  placeholder="Enter username..."
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const value = (e.target as HTMLInputElement).value.trim();
-                      if (value) saveUsername(value);
-                    }
-                  }}
-                />
-                <Button
-                  onClick={() => {
-                    const input = document.querySelector('input[placeholder="Enter username..."]') as HTMLInputElement;
-                    if (input?.value.trim()) saveUsername(input.value.trim());
-                  }}
-                >
-                  Save
-                </Button>
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
@@ -268,7 +250,7 @@ export default function ImageChat() {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => handleDownload(message.imageUrl!, message.content)}
+                        onClick={() => handleDownload(message.imageUrl!)}
                       >
                         <Download className="w-4 h-4 mr-1" />
                         Download
@@ -320,10 +302,10 @@ export default function ImageChat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Describe the image you want to generate..."
-            disabled={isLoading || !username}
+            disabled={isLoading}
             className="flex-1"
           />
-          <Button type="submit" disabled={isLoading || !input.trim() || !username}>
+          <Button type="submit" disabled={isLoading || !input.trim()}>
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
@@ -332,12 +314,10 @@ export default function ImageChat() {
           </Button>
         </form>
         
-        {username && (
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            Generating as <span className="font-medium">{username}</span>
-            {autoWatermark && ' • Images will be watermarked'}
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground text-center mt-2">
+          Signed in as <span className="font-medium">{user.email}</span>
+          {autoWatermark && ' • Images will be watermarked'}
+        </p>
       </div>
     </div>
   );
