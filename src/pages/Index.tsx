@@ -40,13 +40,6 @@ const Index = () => {
               <span className="text-foreground">Cloud Registry Verification</span>
             </div>
           </div>
-          
-          {/* Link to Chat */}
-          <div className="mt-4">
-            <a href="/" className="text-primary hover:underline text-sm">
-              ← Back to Image Generator
-            </a>
-          </div>
         </div>
       </header>
 
