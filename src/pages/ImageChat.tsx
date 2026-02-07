@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Shield, ShieldCheck, Loader2, ImageIcon, Download, Check, Copy } from 'lucide-react';
+import { Send, Shield, ShieldCheck, Loader2, ImageIcon, Download, Check, Copy, Search, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { embedWatermark, downloadImage } from '@/lib/watermark';
+import { VerifyPanel } from '@/components/VerifyPanel';
+import { BookmarkletSection } from '@/components/BookmarkletSection';
 import { Link } from 'react-router-dom';
 
 interface Message {
@@ -27,11 +30,25 @@ export default function ImageChat() {
   const [autoWatermark, setAutoWatermark] = useState(true);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [username, setUsername] = useState('');
+  const [verifyImageUrl, setVerifyImageUrl] = useState<string | null>(null);
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('imageGuardianUsername');
     if (saved) setUsername(saved);
+  }, []);
+
+  // Handle query params for bookmarklet integration
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verifyUrl = params.get('verify');
+    if (verifyUrl) {
+      setVerifyImageUrl(verifyUrl);
+      setVerifyOpen(true);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, []);
 
   useEffect(() => {
@@ -66,7 +83,6 @@ export default function ImageChat() {
     setIsLoading(true);
 
     try {
-      // Call the edge function
       const { data, error } = await supabase.functions.invoke('generate-image', {
         body: { prompt: userMessage.content },
       });
@@ -78,7 +94,6 @@ export default function ImageChat() {
       let isWatermarked = false;
       let watermarkHash: string | undefined;
 
-      // Apply watermark if enabled
       if (autoWatermark && finalImageUrl) {
         try {
           const timestamp = new Date().toISOString();
@@ -92,7 +107,6 @@ export default function ImageChat() {
           isWatermarked = true;
           watermarkHash = result.hash;
 
-          // Save to registry
           await supabase.from('watermark_registry').insert({
             creator_id: username,
             timestamp,
@@ -139,8 +153,7 @@ export default function ImageChat() {
   };
 
   const handleDownload = (imageUrl: string) => {
-    const filename = `generated_${Date.now()}.png`;
-    downloadImage(imageUrl, filename);
+    downloadImage(imageUrl, `generated_${Date.now()}.png`);
     toast.success('Image downloaded');
   };
 
@@ -162,21 +175,41 @@ export default function ImageChat() {
             </div>
             <div>
               <h1 className="font-semibold text-foreground">Image Guardian AI</h1>
-              <p className="text-xs text-muted-foreground">Generate & protect your images</p>
+              <p className="text-xs text-muted-foreground">Generate, protect & verify images</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            <Link to="/verify" className="text-sm text-muted-foreground hover:text-foreground">
-              Verify Images
+          <div className="flex items-center gap-3">
+            {/* Verify drawer */}
+            <Sheet open={verifyOpen} onOpenChange={setVerifyOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Search className="w-4 h-4 mr-1" />
+                  Verify
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-[400px] sm:w-[450px]">
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <Search className="w-5 h-5 text-primary" />
+                    Verify Image
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="mt-4">
+                  <VerifyPanel initialImageUrl={verifyImageUrl} />
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <Link to="/tools">
+              <Button variant="ghost" size="sm">
+                <Bookmark className="w-4 h-4 mr-1" />
+                Tools
+              </Button>
             </Link>
-            
+
             <div className="flex items-center gap-2">
-              <Switch
-                id="auto-watermark"
-                checked={autoWatermark}
-                onCheckedChange={setAutoWatermark}
-              />
+              <Switch id="auto-watermark" checked={autoWatermark} onCheckedChange={setAutoWatermark} />
               <Label htmlFor="auto-watermark" className="text-sm flex items-center gap-1">
                 <Shield className="w-4 h-4" />
                 Auto-watermark
@@ -197,31 +230,23 @@ export default function ImageChat() {
                 Describe the image you want to generate. With auto-watermark enabled, 
                 your images will be protected and verifiable.
               </p>
+              <div className="mt-6">
+                <BookmarkletSection />
+              </div>
             </div>
           )}
 
           {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                  message.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
-                }`}
-              >
+            <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
+              }`}>
                 <p className="text-sm">{message.content}</p>
                 
                 {message.imageUrl && (
                   <div className="mt-3 space-y-2">
                     <div className="relative rounded-lg overflow-hidden bg-background/50">
-                      <img
-                        src={message.imageUrl}
-                        alt="Generated"
-                        className="max-w-full h-auto max-h-[400px] object-contain"
-                      />
+                      <img src={message.imageUrl} alt="Generated" className="max-w-full h-auto max-h-[400px] object-contain" />
                       {message.isWatermarked && (
                         <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs">
                           <ShieldCheck className="w-3 h-3" />
@@ -231,27 +256,14 @@ export default function ImageChat() {
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleDownload(message.imageUrl!)}
-                      >
+                      <Button variant="secondary" size="sm" onClick={() => handleDownload(message.imageUrl!)}>
                         <Download className="w-4 h-4 mr-1" />
                         Download
                       </Button>
                       
                       {message.watermarkHash && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyHash(message.watermarkHash!)}
-                          className="font-mono text-xs"
-                        >
-                          {copiedHash === message.watermarkHash ? (
-                            <Check className="w-4 h-4 mr-1" />
-                          ) : (
-                            <Copy className="w-4 h-4 mr-1" />
-                          )}
+                        <Button variant="ghost" size="sm" onClick={() => copyHash(message.watermarkHash!)} className="font-mono text-xs">
+                          {copiedHash === message.watermarkHash ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
                           {message.watermarkHash.slice(0, 12)}...
                         </Button>
                       )}
@@ -302,24 +314,15 @@ export default function ImageChat() {
               className="flex-1"
             />
             <Button type="submit" disabled={isLoading || !input.trim() || !username}>
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </form>
           
           {username && (
             <p className="text-xs text-muted-foreground text-center">
               Creating as <span className="font-medium">{username}</span>
-              <button 
-                onClick={() => handleUsernameChange('')}
-                className="ml-2 text-primary hover:underline"
-              >
-                Change
-              </button>
-              {autoWatermark && ' • Images will be watermarked'}
+              <button onClick={() => handleUsernameChange('')} className="ml-2 text-primary hover:underline">Change</button>
+              {autoWatermark && ' • Images will be watermarked with UTC timestamp'}
             </p>
           )}
         </div>
