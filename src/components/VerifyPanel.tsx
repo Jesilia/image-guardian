@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Upload, Search, Shield, CheckCircle, XCircle, AlertTriangle, Hash, User, Clock, Loader2 } from 'lucide-react';
+import { Upload, Search, Shield, CheckCircle, XCircle, Hash, User, Clock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -104,9 +104,8 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
       setCurrentStep('complete');
       setResult(verificationResult);
 
-      if (verificationResult.status === 'authentic') toast.success('Image verified as authentic!');
-      else if (verificationResult.status === 'tampered') toast.warning('Image appears modified');
-      else toast.error('Image not found in registry');
+      if (verificationResult.status === 'registered') toast.success('Image is registered!');
+      else toast.error('Image is not registered');
     } catch (error) {
       console.error('Verification error:', error);
       toast.error('Verification failed');
@@ -177,40 +176,34 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
       {result && currentStep === 'complete' && (
         <div className="space-y-3">
           <Card className={`p-4 border-2 ${
-            result.status === 'authentic' ? 'border-[hsl(142,76%,36%)] bg-[hsl(142,76%,36%,0.1)]' :
-            result.status === 'tampered' ? 'border-[hsl(38,92%,50%)] bg-[hsl(38,92%,50%,0.1)]' :
+            result.status === 'registered' ? 'border-[hsl(142,76%,36%)] bg-[hsl(142,76%,36%,0.1)]' :
             'border-destructive bg-destructive/10'
           }`}>
             <div className="flex items-center gap-3">
-              {result.status === 'authentic' && <CheckCircle className="w-8 h-8 text-[hsl(142,76%,36%)]" />}
-              {result.status === 'tampered' && <AlertTriangle className="w-8 h-8 text-[hsl(38,92%,50%)]" />}
+              {result.status === 'registered' && <CheckCircle className="w-8 h-8 text-[hsl(142,76%,36%)]" />}
               {result.status === 'unregistered' && <XCircle className="w-8 h-8 text-destructive" />}
               <div>
                 <p className="font-bold text-foreground">
-                  {result.status === 'authentic' && '✅ Authentic'}
-                  {result.status === 'tampered' && '⚠️ Tampered'}
-                  {result.status === 'unregistered' && '❌ Unregistered'}
+                  {result.status === 'registered' ? '✅ Registered' : '❌ Unregistered'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {result.status === 'authentic' && 'Matches registry, unmodified.'}
-                  {result.status === 'tampered' && 'Watermark found but hash mismatch.'}
-                  {result.status === 'unregistered' && 'No watermark or registry match.'}
+                  {result.status === 'registered' ? 'Hash matches registry. This image is authentic.' : 'No matching hash found in registry.'}
                 </p>
               </div>
             </div>
           </Card>
 
-          {result.extractedData && (
+          {result.registryEntry && (
             <div className="text-xs space-y-1 p-3 bg-muted/20 rounded-lg">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <User className="w-3 h-3 text-primary" />
                 <span className="font-medium">Creator:</span>
-                <span>{result.extractedData.creatorId}</span>
+                <span>{result.registryEntry.creator_id}</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Clock className="w-3 h-3 text-primary" />
                 <span className="font-medium">Timestamp:</span>
-                <span>{new Date(result.extractedData.timestamp).toLocaleString()}</span>
+                <span>{new Date(result.registryEntry.timestamp).toLocaleString()}</span>
               </div>
               <div className="flex items-start gap-2 text-muted-foreground">
                 <Hash className="w-3 h-3 text-primary mt-0.5" />

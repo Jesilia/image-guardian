@@ -42,7 +42,7 @@ export interface RegistryEntry {
 }
 
 export interface VerificationResult {
-  status: 'authentic' | 'tampered' | 'unregistered';
+  status: 'registered' | 'unregistered';
   extractedData: ExtractedWatermark | null;
   currentHash: string;
   registryEntry: RegistryEntry | null;
@@ -439,73 +439,48 @@ export async function verifyImage(
   // Generate hash of current image
   const currentHash = await generateHash(imageDataUrl);
   
-  if (!extractedData) {
-    return {
-      status: 'unregistered',
-      extractedData: null,
-      currentHash,
-      registryEntry: null,
-    };
-  }
-  
-  // Query Cloud registry
-  const { data: registryEntries, error } = await supabase
+  // Primary check: look up image hash directly in registry
+  const { data: hashEntries, error: hashError } = await supabase
     .from('watermark_registry')
     .select('*')
-    .eq('creator_id', extractedData.creatorId)
-    .eq('timestamp', extractedData.timestamp)
+    .eq('image_hash', currentHash)
     .limit(1);
   
-  if (error) {
-    console.error('Registry lookup error:', error);
+  if (!hashError && hashEntries && hashEntries.length > 0) {
+    const registryEntry = hashEntries[0] as RegistryEntry;
     return {
-      status: 'unregistered',
+      status: 'registered',
       extractedData,
       currentHash,
-      registryEntry: null,
+      registryEntry,
     };
   }
   
-  if (!registryEntries || registryEntries.length === 0) {
-    // Also check local ledger as fallback
-    const localLedger = getLedger();
-    const localEntry = localLedger.find(
-      (e) => e.creatorId === extractedData.creatorId && e.timestamp === extractedData.timestamp
-    );
-    
-    if (localEntry) {
-      const hashMatch = localEntry.imageHash === currentHash;
-      return {
-        status: hashMatch ? 'authentic' : 'tampered',
-        extractedData,
-        currentHash,
-        registryEntry: {
-          id: localEntry.id,
-          creator_id: localEntry.creatorId,
-          timestamp: localEntry.timestamp,
-          prompt: localEntry.prompt || null,
-          image_hash: localEntry.imageHash,
-          created_at: localEntry.createdAt,
-        },
-      };
-    }
-    
+  // Fallback: check local ledger by hash
+  const localLedger = getLedger();
+  const localEntry = localLedger.find((e) => e.imageHash === currentHash);
+  
+  if (localEntry) {
     return {
-      status: 'unregistered',
+      status: 'registered',
       extractedData,
       currentHash,
-      registryEntry: null,
+      registryEntry: {
+        id: localEntry.id,
+        creator_id: localEntry.creatorId,
+        timestamp: localEntry.timestamp,
+        prompt: localEntry.prompt || null,
+        image_hash: localEntry.imageHash,
+        created_at: localEntry.createdAt,
+      },
     };
   }
-  
-  const registryEntry = registryEntries[0] as RegistryEntry;
-  const hashMatch = registryEntry.image_hash === currentHash;
   
   return {
-    status: hashMatch ? 'authentic' : 'tampered',
+    status: 'unregistered',
     extractedData,
     currentHash,
-    registryEntry,
+    registryEntry: null,
   };
 }
 
