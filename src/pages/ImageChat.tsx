@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Shield, ShieldCheck, Loader2, ImageIcon, Download, Check, Copy, Search, Bookmark } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Send, Shield, ShieldCheck, Loader2, ImageIcon, Download, Check, Copy, Search, Bookmark, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,6 +13,7 @@ import { embedWatermark, downloadImage } from '@/lib/watermark';
 import { VerifyPanel } from '@/components/VerifyPanel';
 import { BookmarkletSection } from '@/components/BookmarkletSection';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Message {
   id: string;
@@ -24,20 +26,23 @@ interface Message {
 }
 
 export default function ImageChat() {
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [autoWatermark, setAutoWatermark] = useState(true);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
-  const [username, setUsername] = useState('');
   const [verifyImageUrl, setVerifyImageUrl] = useState<string | null>(null);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Redirect to auth if not logged in
   useEffect(() => {
-    const saved = localStorage.getItem('imageGuardianUsername');
-    if (saved) setUsername(saved);
-  }, []);
+    if (!loading && !user) {
+      navigate('/auth', { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   // Handle query params for bookmarklet integration
   useEffect(() => {
@@ -46,7 +51,6 @@ export default function ImageChat() {
     if (verifyUrl) {
       setVerifyImageUrl(verifyUrl);
       setVerifyOpen(true);
-      // Clean URL
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
@@ -57,19 +61,9 @@ export default function ImageChat() {
     }
   }, [messages]);
 
-  const handleUsernameChange = (value: string) => {
-    setUsername(value);
-    localStorage.setItem('imageGuardianUsername', value);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    if (!username.trim()) {
-      toast.error('Please enter a username first');
-      return;
-    }
+    if (!input.trim() || isLoading || !user) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -98,7 +92,7 @@ export default function ImageChat() {
         try {
           const timestamp = new Date().toISOString();
           const result = await embedWatermark(finalImageUrl, {
-            creatorId: username,
+            creatorId: user.id,
             timestamp,
             prompt: userMessage.content,
           });
@@ -108,7 +102,7 @@ export default function ImageChat() {
           watermarkHash = result.hash;
 
           await supabase.from('watermark_registry').insert({
-            creator_id: username,
+            creator_id: user.id,
             timestamp,
             prompt: userMessage.content,
             image_hash: result.hash,
@@ -164,6 +158,16 @@ export default function ImageChat() {
     setTimeout(() => setCopiedHash(null), 2000);
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
@@ -180,7 +184,6 @@ export default function ImageChat() {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Verify drawer */}
             <Sheet open={verifyOpen} onOpenChange={setVerifyOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -215,6 +218,10 @@ export default function ImageChat() {
                 Auto-watermark
               </Label>
             </div>
+
+            <Button variant="ghost" size="sm" onClick={signOut} title="Sign out">
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </header>
@@ -294,37 +301,23 @@ export default function ImageChat() {
       {/* Input */}
       <div className="border-t border-border p-4 bg-card">
         <div className="max-w-4xl mx-auto space-y-3">
-          {!username && (
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Enter your username to start..."
-                value={username}
-                onChange={(e) => handleUsernameChange(e.target.value)}
-                className="flex-1"
-              />
-            </div>
-          )}
-          
           <form onSubmit={handleSubmit} className="flex gap-2">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Describe the image you want to generate..."
-              disabled={isLoading || !username}
+              disabled={isLoading}
               className="flex-1"
             />
-            <Button type="submit" disabled={isLoading || !input.trim() || !username}>
+            <Button type="submit" disabled={isLoading || !input.trim()}>
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </form>
           
-          {username && (
-            <p className="text-xs text-muted-foreground text-center">
-              Creating as <span className="font-medium">{username}</span>
-              <button onClick={() => handleUsernameChange('')} className="ml-2 text-primary hover:underline">Change</button>
-              {autoWatermark && ' • Images will be watermarked with UTC timestamp'}
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground text-center">
+            Signed in as <span className="font-medium">{user.email}</span>
+            {autoWatermark && ' • Images will be watermarked with UTC timestamp'}
+          </p>
         </div>
       </div>
     </div>
