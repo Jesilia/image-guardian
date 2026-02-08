@@ -48,8 +48,11 @@ export interface VerificationResult {
   registryEntry: RegistryEntry | null;
 }
 
-// Alpha factor for watermark strength (lower = less visible)
-const ALPHA = 0.02;
+// Alpha factors for watermark strength - higher = more robust but more visible
+const ALPHA_LH = 0.05;  // Horizontal detail band
+const ALPHA_HL = 0.04;  // Vertical detail band
+const ALPHA_HH = 0.03;  // Diagonal detail band
+const REPETITION_FACTOR = 3; // Repeat watermark for error correction
 
 /**
  * Convert string to binary representation
@@ -283,12 +286,38 @@ export async function embedWatermark(
         const watermarkString = `${watermarkData.creatorId}|${watermarkData.timestamp}`;
         const binary = stringToBinary(watermarkString);
         
+        // Repeat binary for error correction
+        const repeatedBinary: number[] = [];
+        for (let r = 0; r < REPETITION_FACTOR; r++) {
+          repeatedBinary.push(...binary);
+        }
+        
         // Embed watermark into LH coefficients (horizontal detail)
         let bitIndex = 0;
-        for (let y = 0; y < LH.length && bitIndex < binary.length; y++) {
-          for (let x = 0; x < LH[y].length && bitIndex < binary.length; x++) {
-            const bit = binary[bitIndex];
-            LH[y][x] += (bit === 1 ? ALPHA : -ALPHA) * Math.abs(LH[y][x] + 1);
+        for (let y = 0; y < LH.length && bitIndex < repeatedBinary.length; y++) {
+          for (let x = 0; x < LH[y].length && bitIndex < repeatedBinary.length; x++) {
+            const bit = repeatedBinary[bitIndex];
+            LH[y][x] += (bit === 1 ? ALPHA_LH : -ALPHA_LH) * Math.abs(LH[y][x] + 1);
+            bitIndex++;
+          }
+        }
+        
+        // Embed into HL coefficients (vertical detail) for redundancy
+        bitIndex = 0;
+        for (let y = 0; y < HL.length && bitIndex < repeatedBinary.length; y++) {
+          for (let x = 0; x < HL[y].length && bitIndex < repeatedBinary.length; x++) {
+            const bit = repeatedBinary[bitIndex];
+            HL[y][x] += (bit === 1 ? ALPHA_HL : -ALPHA_HL) * Math.abs(HL[y][x] + 1);
+            bitIndex++;
+          }
+        }
+        
+        // Embed into HH coefficients (diagonal detail) for extra robustness
+        bitIndex = 0;
+        for (let y = 0; y < HH.length && bitIndex < repeatedBinary.length; y++) {
+          for (let x = 0; x < HH[y].length && bitIndex < repeatedBinary.length; x++) {
+            const bit = repeatedBinary[bitIndex];
+            HH[y][x] += (bit === 1 ? ALPHA_HH : -ALPHA_HH) * Math.abs(HH[y][x] + 1);
             bitIndex++;
           }
         }

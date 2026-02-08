@@ -92,7 +92,7 @@ export default function ImageChat() {
         try {
           const timestamp = new Date().toISOString();
           const result = await embedWatermark(finalImageUrl, {
-            creatorId: user.id,
+            creatorId: user.email || user.id,
             timestamp,
             prompt: userMessage.content,
           });
@@ -102,7 +102,7 @@ export default function ImageChat() {
           watermarkHash = result.hash;
 
           await supabase.from('watermark_registry').insert({
-            creator_id: user.id,
+            creator_id: user.email || user.id,
             timestamp,
             prompt: userMessage.content,
             image_hash: result.hash,
