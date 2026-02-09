@@ -528,28 +528,47 @@ async function generateHash(data: string): Promise<string> {
  * Load image from URL or file and convert to data URL
  */
 export function loadImageAsDataUrl(source: string | File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (typeof source === 'string') {
-      // URL - fetch and convert
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = () => reject(new Error('Failed to load image from URL'));
-      img.src = source;
-    } else {
-      // File
+  if (typeof source !== 'string') {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsDataURL(source);
-    }
+    });
+  }
+
+  // For URLs, try direct load first, then fall back to proxy for CORS issues
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = async () => {
+      // CORS blocked — use server-side proxy
+      try {
+        const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/image-proxy`;
+        const res = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ url: source }),
+        });
+        if (!res.ok) throw new Error('Proxy fetch failed');
+        const data = await res.json();
+        resolve(data.dataUrl);
+      } catch (proxyErr) {
+        reject(new Error('Failed to load image from URL'));
+      }
+    };
+    img.src = source;
   });
 }
 
