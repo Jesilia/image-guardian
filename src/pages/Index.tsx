@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Shield, Fingerprint, Lock, Search } from 'lucide-react';
 import { WatermarkTool } from '@/components/WatermarkTool';
 import { VerificationTool } from '@/components/VerificationTool';
@@ -6,6 +7,15 @@ import { AuditLedger } from '@/components/AuditLedger';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
+  const [defaultTab, setDefaultTab] = useState('watermark');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('verify')) {
+      setDefaultTab('verify');
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Header */}
@@ -55,7 +65,7 @@ const Index = () => {
         <div className="grid gap-8 lg:grid-cols-[1fr,380px]">
           {/* Left Column - Main Tool */}
           <div className="space-y-6">
-            <Tabs defaultValue="watermark" className="w-full">
+            <Tabs defaultValue={defaultTab} key={defaultTab} className="w-full">
               <TabsList className="w-full grid grid-cols-2">
                 <TabsTrigger value="watermark" className="flex items-center gap-2">
                   <Shield className="w-4 h-4" />
