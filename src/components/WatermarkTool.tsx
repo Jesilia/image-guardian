@@ -14,7 +14,11 @@ import {
   WatermarkResult,
 } from '@/lib/watermark';
 
-export function WatermarkTool() {
+interface WatermarkToolProps {
+  initialImageUrl?: string | null;
+}
+
+export function WatermarkTool({ initialImageUrl }: WatermarkToolProps) {
   const [creatorId, setCreatorId] = useState('');
   const [prompt, setPrompt] = useState('');
   const [sourceImage, setSourceImage] = useState<string | null>(null);
@@ -22,14 +26,13 @@ export function WatermarkTool() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Check for image URL in query params (from bookmarklet)
+  // Check for image URL in query params (from bookmarklet) or prop
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const imageUrl = params.get('image');
-    if (imageUrl) {
-      handleImageUrl(imageUrl);
+    const url = initialImageUrl || new URLSearchParams(window.location.search).get('image');
+    if (url) {
+      handleImageUrl(url);
     }
-  }, []);
+  }, [initialImageUrl]);
 
   const handleImageUrl = async (url: string) => {
     try {

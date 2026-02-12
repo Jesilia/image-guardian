@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Shield, Fingerprint, Lock, Search } from 'lucide-react';
 import { WatermarkTool } from '@/components/WatermarkTool';
 import { VerificationTool } from '@/components/VerificationTool';
@@ -7,14 +7,10 @@ import { AuditLedger } from '@/components/AuditLedger';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
-  const [defaultTab, setDefaultTab] = useState('watermark');
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('verify')) {
-      setDefaultTab('verify');
-    }
-  }, []);
+  const params = new URLSearchParams(window.location.search);
+  const imageUrl = params.get('image');
+  const verifyUrl = params.get('verify');
+  const [defaultTab] = useState(verifyUrl ? 'verify' : 'watermark');
 
   return (
     <div className="min-h-screen bg-background">
@@ -79,11 +75,11 @@ const Index = () => {
 
               <TabsContent value="watermark" className="mt-6 space-y-6">
                 <BookmarkletSection />
-                <WatermarkTool />
+                <WatermarkTool initialImageUrl={imageUrl} />
               </TabsContent>
 
               <TabsContent value="verify" className="mt-6">
-                <VerificationTool />
+                <VerificationTool initialImageUrl={verifyUrl} />
               </TabsContent>
             </Tabs>
           </div>
