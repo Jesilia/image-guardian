@@ -16,26 +16,32 @@ export type Database = {
     Tables: {
       watermark_registry: {
         Row: {
+          chain_hash: string | null
           created_at: string
           creator_id: string
           id: string
           image_hash: string
+          prev_hash: string | null
           prompt: string | null
           timestamp: string
         }
         Insert: {
+          chain_hash?: string | null
           created_at?: string
           creator_id: string
           id?: string
           image_hash: string
+          prev_hash?: string | null
           prompt?: string | null
           timestamp: string
         }
         Update: {
+          chain_hash?: string | null
           created_at?: string
           creator_id?: string
           id?: string
           image_hash?: string
+          prev_hash?: string | null
           prompt?: string | null
           timestamp?: string
         }
@@ -46,7 +52,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      verify_chain_integrity: {
+        Args: never
+        Returns: {
+          actual_hash: string
+          expected_hash: string
+          id: string
+          is_valid: boolean
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
