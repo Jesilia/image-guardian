@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Upload, Search, Shield, CheckCircle, XCircle, Hash, User, Clock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,10 +18,21 @@ const stepLabels: Record<VerificationStep, string> = {
   complete: '6️⃣ Verification complete',
 };
 
-export function VerificationTool() {
+interface VerificationToolProps {
+  initialImageUrl?: string | null;
+}
+
+export function VerificationTool({ initialImageUrl }: VerificationToolProps) {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<VerificationStep>('idle');
   const [result, setResult] = useState<VerificationResult | null>(null);
+
+  useEffect(() => {
+    const url = initialImageUrl || new URLSearchParams(window.location.search).get('verify');
+    if (url) {
+      handleImageUrl(url);
+    }
+  }, [initialImageUrl]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
