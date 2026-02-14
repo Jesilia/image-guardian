@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import {
   embedWatermark,
@@ -19,12 +20,15 @@ interface WatermarkToolProps {
 }
 
 export function WatermarkTool({ initialImageUrl }: WatermarkToolProps) {
-  const [creatorId, setCreatorId] = useState('');
+  const { user } = useAuth();
   const [prompt, setPrompt] = useState('');
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [result, setResult] = useState<WatermarkResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Auto-populate creator ID from authenticated user's email
+  const creatorId = user?.email ?? '';
 
   // Check for image URL in query params (from bookmarklet) or prop
   useEffect(() => {
@@ -136,12 +140,11 @@ export function WatermarkTool({ initialImageUrl }: WatermarkToolProps) {
         </label>
         <Input
           value={creatorId}
-          onChange={(e) => setCreatorId(e.target.value)}
-          placeholder="Enter your username or email"
-          className="bg-input/50 border-border/50 focus:border-primary"
+          readOnly
+          className="bg-input/50 border-border/50 opacity-70 cursor-not-allowed"
         />
         <p className="text-xs text-muted-foreground mt-2">
-          This will be embedded invisibly into your image
+          Automatically set from your account email
         </p>
       </div>
 
