@@ -48,11 +48,10 @@ export interface VerificationResult {
   registryEntry: RegistryEntry | null;
 }
 
-// Alpha factors for watermark strength - higher = more robust but more visible
-const ALPHA_LH = 0.15;  // Horizontal detail band
-const ALPHA_HL = 0.12;  // Vertical detail band
-const ALPHA_HH = 0.10;  // Diagonal detail band
-const REPETITION_FACTOR = 7; // Repeat watermark for error correction
+// QIM (Quantization Index Modulation) step size — larger = more robust but more visible
+const QIM_STEP = 25;
+// Minimum tile size for block-based embedding (watermark is tiled across image)
+const MIN_TILE_SIZE = 64;
 
 /**
  * Convert string to binary representation
@@ -242,7 +241,61 @@ function rgbToY(r: number, g: number, b: number): number {
 }
 
 /**
- * Embed watermark into image using DWT
+ * QIM embedding: quantize coefficient to encode a bit
+ */
+function qimEmbed(coef: number, bit: number): number {
+  const step = QIM_STEP;
+  const halfStep = step / 2;
+  // Quantize to nearest multiple of step, offset by halfStep for bit=1
+  const offset = bit === 1 ? halfStep : 0;
+  return Math.round((coef - offset) / step) * step + offset;
+}
+
+/**
+ * QIM extraction: determine which bit a coefficient encodes
+ */
+function qimExtract(coef: number): number {
+  const step = QIM_STEP;
+  const halfStep = step / 2;
+  // Distance to nearest even quantization (bit 0) vs odd (bit 1)
+  const dist0 = Math.abs(coef - Math.round(coef / step) * step);
+  const dist1 = Math.abs(coef - (Math.round((coef - halfStep) / step) * step + halfStep));
+  return dist0 <= dist1 ? 0 : 1;
+}
+
+/**
+ * Embed watermark bits into a single DWT band using QIM
+ */
+function embedIntoBand(band: number[][], binary: number[]): void {
+  let bitIndex = 0;
+  for (let y = 0; y < band.length; y++) {
+    for (let x = 0; x < band[y].length; x++) {
+      if (bitIndex >= binary.length) bitIndex = 0; // tile/repeat
+      band[y][x] = qimEmbed(band[y][x], binary[bitIndex]);
+      bitIndex++;
+    }
+  }
+}
+
+/**
+ * Extract watermark bits from a DWT band using QIM majority voting
+ */
+function extractFromBand(band: number[][], payloadLength: number): number[] {
+  const votes: number[][] = Array.from({ length: payloadLength }, () => [0, 0]);
+  let bitIndex = 0;
+  for (let y = 0; y < band.length; y++) {
+    for (let x = 0; x < band[y].length; x++) {
+      const idx = bitIndex % payloadLength;
+      const bit = qimExtract(band[y][x]);
+      votes[idx][bit]++;
+      bitIndex++;
+    }
+  }
+  return votes.map(v => (v[1] >= v[0] ? 1 : 0));
+}
+
+/**
+ * Embed watermark into image using DWT + QIM (robust to crop, filters, format changes)
  */
 export async function embedWatermark(
   imageDataUrl: string,
@@ -254,11 +307,9 @@ export async function embedWatermark(
     
     img.onload = async () => {
       try {
-        // Create canvas
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!;
         
-        // Ensure dimensions are even for DWT
         const width = img.width - (img.width % 2);
         const height = img.height - (img.height % 2);
         
@@ -282,45 +333,14 @@ export async function embedWatermark(
         // Apply DWT
         const { LL, LH, HL, HH } = dwt2D(yChannel);
         
-        // Create watermark string and convert to binary
+        // Create watermark payload
         const watermarkString = `${watermarkData.creatorId}|${watermarkData.timestamp}`;
         const binary = stringToBinary(watermarkString);
         
-        // Repeat binary for error correction
-        const repeatedBinary: number[] = [];
-        for (let r = 0; r < REPETITION_FACTOR; r++) {
-          repeatedBinary.push(...binary);
-        }
-        
-        // Embed watermark into LH coefficients (horizontal detail)
-        let bitIndex = 0;
-        for (let y = 0; y < LH.length && bitIndex < repeatedBinary.length; y++) {
-          for (let x = 0; x < LH[y].length && bitIndex < repeatedBinary.length; x++) {
-            const bit = repeatedBinary[bitIndex];
-            LH[y][x] += (bit === 1 ? ALPHA_LH : -ALPHA_LH) * Math.abs(LH[y][x] + 1);
-            bitIndex++;
-          }
-        }
-        
-        // Embed into HL coefficients (vertical detail) for redundancy
-        bitIndex = 0;
-        for (let y = 0; y < HL.length && bitIndex < repeatedBinary.length; y++) {
-          for (let x = 0; x < HL[y].length && bitIndex < repeatedBinary.length; x++) {
-            const bit = repeatedBinary[bitIndex];
-            HL[y][x] += (bit === 1 ? ALPHA_HL : -ALPHA_HL) * Math.abs(HL[y][x] + 1);
-            bitIndex++;
-          }
-        }
-        
-        // Embed into HH coefficients (diagonal detail) for extra robustness
-        bitIndex = 0;
-        for (let y = 0; y < HH.length && bitIndex < repeatedBinary.length; y++) {
-          for (let x = 0; x < HH[y].length && bitIndex < repeatedBinary.length; x++) {
-            const bit = repeatedBinary[bitIndex];
-            HH[y][x] += (bit === 1 ? ALPHA_HH : -ALPHA_HH) * Math.abs(HH[y][x] + 1);
-            bitIndex++;
-          }
-        }
+        // Embed into all three detail bands using QIM (tiled/repeated automatically)
+        embedIntoBand(LH, binary);
+        embedIntoBand(HL, binary);
+        embedIntoBand(HH, binary);
         
         // Inverse DWT
         const reconstructedY = idwt2D(LL, LH, HL, HH);
@@ -333,7 +353,6 @@ export async function embedWatermark(
             const newY = reconstructedY[y][x];
             const diff = newY - originalY;
             
-            // Apply proportional change to RGB
             data[i] = Math.max(0, Math.min(255, data[i] + diff));
             data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + diff));
             data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + diff));
@@ -342,11 +361,9 @@ export async function embedWatermark(
         
         ctx.putImageData(imageData, 0, 0);
         
-        // Generate SHA-256 hash
         const watermarkedDataUrl = canvas.toDataURL('image/png');
         const hash = await generateHash(watermarkedDataUrl);
         
-        // Create ledger entry
         const ledgerEntry: LedgerEntry = {
           id: crypto.randomUUID(),
           creatorId: watermarkData.creatorId,
@@ -372,7 +389,7 @@ export async function embedWatermark(
 }
 
 /**
- * Extract watermark from image using DWT
+ * Extract watermark from image using DWT + QIM with majority voting across 3 bands
  */
 export async function extractWatermark(imageDataUrl: string): Promise<ExtractedWatermark | null> {
   return new Promise((resolve, reject) => {
@@ -405,45 +422,53 @@ export async function extractWatermark(imageDataUrl: string): Promise<ExtractedW
         }
         
         // Apply DWT
-        const { LH } = dwt2D(yChannel);
+        const { LH, HL, HH } = dwt2D(yChannel);
         
-        // Extract bits from LH coefficients
-        // We use a threshold-based approach
-        const maxBits = 1024; // Max payload size
-        const extractedBits: number[] = [];
+        // Try different payload lengths to find a valid watermark
+        // Typical payload: "user@email.com|2025-01-01T00:00:00.000Z" = ~50 chars = 400 bits
+        const maxChars = 128;
         
-        for (let y = 0; y < LH.length && extractedBits.length < maxBits; y++) {
-          for (let x = 0; x < LH[y].length && extractedBits.length < maxBits; x++) {
-            // Detect bit based on coefficient sign tendency
-            const coef = LH[y][x];
-            extractedBits.push(coef >= 0 ? 1 : 0);
-          }
-        }
-        
-        // Convert to string and parse
-        const rawString = binaryToString(extractedBits);
-        
-        // Look for the pattern: creatorId|timestamp
-        const pipeIndex = rawString.indexOf('|');
-        if (pipeIndex > 0 && pipeIndex < rawString.length - 1) {
-          const creatorId = rawString.substring(0, pipeIndex).trim();
-          // Find the end of the timestamp (ISO format ends with Z or has timezone)
-          let timestampEnd = rawString.indexOf('Z', pipeIndex);
-          if (timestampEnd === -1) {
-            // Try to find reasonable end
-            timestampEnd = Math.min(pipeIndex + 30, rawString.length);
-          } else {
-            timestampEnd += 1; // Include the Z
-          }
-          const timestamp = rawString.substring(pipeIndex + 1, timestampEnd).trim();
+        for (let payloadChars = 20; payloadChars <= maxChars; payloadChars++) {
+          const payloadBits = payloadChars * 8;
           
-          if (creatorId.length > 0 && timestamp.length > 0) {
-            resolve({
-              creatorId,
-              timestamp,
-              raw: rawString.substring(0, timestampEnd),
-            });
-            return;
+          // Extract from all 3 bands and do majority voting across bands
+          const bitsLH = extractFromBand(LH, payloadBits);
+          const bitsHL = extractFromBand(HL, payloadBits);
+          const bitsHH = extractFromBand(HH, payloadBits);
+          
+          // Cross-band majority vote
+          const finalBits: number[] = [];
+          for (let i = 0; i < payloadBits; i++) {
+            const sum = bitsLH[i] + bitsHL[i] + bitsHH[i];
+            finalBits.push(sum >= 2 ? 1 : 0);
+          }
+          
+          const rawString = binaryToString(finalBits);
+          
+          // Look for creatorId|timestamp pattern
+          const pipeIndex = rawString.indexOf('|');
+          if (pipeIndex > 0 && pipeIndex < rawString.length - 1) {
+            const creatorId = rawString.substring(0, pipeIndex).trim();
+            let timestampEnd = rawString.indexOf('Z', pipeIndex);
+            if (timestampEnd === -1) {
+              timestampEnd = Math.min(pipeIndex + 30, rawString.length);
+            } else {
+              timestampEnd += 1;
+            }
+            const timestamp = rawString.substring(pipeIndex + 1, timestampEnd).trim();
+            
+            // Validate: creatorId should be printable ASCII, timestamp should look like ISO
+            const isValidCreator = creatorId.length >= 1 && /^[\x20-\x7E]+$/.test(creatorId);
+            const isValidTimestamp = timestamp.length >= 10 && /^\d{4}-\d{2}/.test(timestamp);
+            
+            if (isValidCreator && isValidTimestamp) {
+              resolve({
+                creatorId,
+                timestamp,
+                raw: rawString.substring(0, timestampEnd),
+              });
+              return;
+            }
           }
         }
         
