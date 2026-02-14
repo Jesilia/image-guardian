@@ -465,16 +465,60 @@ export async function verifyImage(
   imageDataUrl: string,
   extractedData: ExtractedWatermark | null
 ): Promise<VerificationResult> {
-  // Generate hash of current image
+  // Generate hash of current image (for display purposes)
   const currentHash = await generateHash(imageDataUrl);
-  
-  // Primary check: look up image hash directly in registry
+
+  // PRIMARY: Use extracted watermark data (creatorId + timestamp) to look up registry.
+  // This is robust to cropping, filters, format conversion, etc.
+  if (extractedData) {
+    // Query registry by creator_id and timestamp from the embedded watermark
+    const { data: wmEntries, error: wmError } = await supabase
+      .from('watermark_registry')
+      .select('*')
+      .eq('creator_id', extractedData.creatorId)
+      .eq('timestamp', extractedData.timestamp)
+      .limit(1);
+
+    if (!wmError && wmEntries && wmEntries.length > 0) {
+      const registryEntry = wmEntries[0] as RegistryEntry;
+      return {
+        status: 'registered',
+        extractedData,
+        currentHash,
+        registryEntry,
+      };
+    }
+
+    // Fallback: check local ledger by extracted data
+    const localLedger = getLedger();
+    const localEntry = localLedger.find(
+      (e) => e.creatorId === extractedData.creatorId && e.timestamp === extractedData.timestamp
+    );
+
+    if (localEntry) {
+      return {
+        status: 'registered',
+        extractedData,
+        currentHash,
+        registryEntry: {
+          id: localEntry.id,
+          creator_id: localEntry.creatorId,
+          timestamp: localEntry.timestamp,
+          prompt: localEntry.prompt || null,
+          image_hash: localEntry.imageHash,
+          created_at: localEntry.createdAt,
+        },
+      };
+    }
+  }
+
+  // SECONDARY: Exact hash match (only works on unmodified images)
   const { data: hashEntries, error: hashError } = await supabase
     .from('watermark_registry')
     .select('*')
     .eq('image_hash', currentHash)
     .limit(1);
-  
+
   if (!hashError && hashEntries && hashEntries.length > 0) {
     const registryEntry = hashEntries[0] as RegistryEntry;
     return {
@@ -484,27 +528,7 @@ export async function verifyImage(
       registryEntry,
     };
   }
-  
-  // Fallback: check local ledger by hash
-  const localLedger = getLedger();
-  const localEntry = localLedger.find((e) => e.imageHash === currentHash);
-  
-  if (localEntry) {
-    return {
-      status: 'registered',
-      extractedData,
-      currentHash,
-      registryEntry: {
-        id: localEntry.id,
-        creator_id: localEntry.creatorId,
-        timestamp: localEntry.timestamp,
-        prompt: localEntry.prompt || null,
-        image_hash: localEntry.imageHash,
-        created_at: localEntry.createdAt,
-      },
-    };
-  }
-  
+
   return {
     status: 'unregistered',
     extractedData,
