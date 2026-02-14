@@ -49,10 +49,10 @@ export interface VerificationResult {
 }
 
 // Alpha factors for watermark strength - higher = more robust but more visible
-const ALPHA_LH = 0.05;  // Horizontal detail band
-const ALPHA_HL = 0.04;  // Vertical detail band
-const ALPHA_HH = 0.03;  // Diagonal detail band
-const REPETITION_FACTOR = 3; // Repeat watermark for error correction
+const ALPHA_LH = 0.15;  // Horizontal detail band
+const ALPHA_HL = 0.12;  // Vertical detail band
+const ALPHA_HH = 0.10;  // Diagonal detail band
+const REPETITION_FACTOR = 7; // Repeat watermark for error correction
 
 /**
  * Convert string to binary representation
