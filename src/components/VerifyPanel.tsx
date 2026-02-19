@@ -104,8 +104,8 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
       setCurrentStep('complete');
       setResult(verificationResult);
 
-      if (verificationResult.status === 'genuine') toast.success('Image is genuine!');
-      else toast.error('Image may be tampered');
+      if (verificationResult.status === 'registered') toast.success('Image is registered!');
+      else toast.error('Image is unregistered');
     } catch (error) {
       console.error('Verification error:', error);
       toast.error('Verification failed');
@@ -176,20 +176,20 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
       {result && currentStep === 'complete' && (
         <div className="space-y-3">
           <Card className={`p-4 border-2 ${
-            result.status === 'genuine' ? 'border-[hsl(142,76%,36%)] bg-[hsl(142,76%,36%,0.1)]' :
+            result.status === 'registered' ? 'border-[hsl(142,76%,36%)] bg-[hsl(142,76%,36%,0.1)]' :
             'border-destructive bg-destructive/10'
           }`}>
             <div className="flex items-center gap-3">
-              {result.status === 'genuine' && <CheckCircle className="w-8 h-8 text-[hsl(142,76%,36%)]" />}
-              {result.status === 'tampered' && <XCircle className="w-8 h-8 text-destructive" />}
+              {result.status === 'registered' && <CheckCircle className="w-8 h-8 text-[hsl(142,76%,36%)]" />}
+              {result.status === 'unregistered' && <XCircle className="w-8 h-8 text-destructive" />}
               <div>
                 <p className="font-bold text-foreground">
-                  {result.status === 'genuine' ? '✅ Genuine' : '❌ Tampered'}
+                  {result.status === 'registered' ? '✅ Registered' : '❌ Unregistered'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {result.status === 'genuine'
+                  {result.status === 'registered'
                     ? `Verified via ${result.confidence === 'exact_hash' ? 'exact hash match' : 'DWT metadata'}. This image is authentic.`
-                    : 'No matching record found. This image may be tampered or unregistered.'}
+                    : 'No matching record found. This image may be unregistered or was never watermarked.'}
                 </p>
               </div>
             </div>

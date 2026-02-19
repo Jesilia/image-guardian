@@ -119,11 +119,13 @@ export function WatermarkTool({ initialImageUrl, onVerify }: WatermarkToolProps)
     }
   };
 
+  const displayName = user?.user_metadata?.full_name || user?.email || creatorId;
+
   const handleDownload = (withVisibleWatermark = false) => {
     if (!result) return;
     const filename = `watermarked_${Date.now()}.png`;
     if (withVisibleWatermark) {
-      burnVisibleWatermark(result.watermarkedImageUrl, creatorId, result.ledgerEntry.timestamp)
+      burnVisibleWatermark(result.watermarkedImageUrl, creatorId, result.ledgerEntry.timestamp, displayName)
         .then((burnedUrl) => {
           downloadImage(burnedUrl, filename);
           toast.success('Downloaded with visible watermark');
