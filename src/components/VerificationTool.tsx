@@ -114,10 +114,10 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
       setCurrentStep('complete');
       setResult(verificationResult);
 
-      if (verificationResult.status === 'genuine') {
-        toast.success('Image is genuine!');
+      if (verificationResult.status === 'registered') {
+        toast.success('Image is registered!');
       } else {
-        toast.error('Image may be tampered');
+        toast.error('Image is unregistered');
       }
     } catch (error) {
       console.error('Verification error:', error);
@@ -208,17 +208,17 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
       {result && currentStep === 'complete' && (
         <div className="space-y-4 animate-slide-up">
           <Card className={`p-6 border-2 ${
-            result.status === 'genuine' ? 'border-[hsl(142,76%,36%)] bg-[hsl(142,76%,36%,0.1)]' : 'border-destructive bg-destructive/10'
+            result.status === 'registered' ? 'border-[hsl(142,76%,36%)] bg-[hsl(142,76%,36%,0.1)]' : 'border-destructive bg-destructive/10'
           }`}>
             <div className="flex flex-col items-center text-center">
-              {result.status === 'genuine' ? <CheckCircle className="w-16 h-16 text-[hsl(142,76%,36%)]" /> : <XCircle className="w-16 h-16 text-destructive" />}
+              {result.status === 'registered' ? <CheckCircle className="w-16 h-16 text-[hsl(142,76%,36%)]" /> : <XCircle className="w-16 h-16 text-destructive" />}
               <h3 className="text-xl font-bold mt-4 text-foreground">
-                {result.status === 'genuine' ? '✅ Genuine Image' : '❌ Tampered Image'}
+                {result.status === 'registered' ? '✅ Registered Image' : '❌ Unregistered Image'}
               </h3>
               <p className="text-muted-foreground mt-2 max-w-md">
-                {result.status === 'genuine'
+                {result.status === 'registered'
                   ? `Verified via ${result.confidence === 'exact_hash' ? 'exact hash match' : 'DWT metadata extraction'}. This image is authentic and tracked in the registry.`
-                  : 'No matching record found in the registry. This image may be tampered or was never registered.'}
+                  : 'No matching record found in the registry. This image may be unregistered or was never watermarked.'}
               </p>
             </div>
           </Card>

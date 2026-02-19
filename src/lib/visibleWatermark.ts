@@ -1,11 +1,13 @@
 /**
  * Burn a visible watermark into an image file (canvas-based).
+ * Shows user name and timestamp.
  * Returns a new data URL with the watermark permanently embedded.
  */
 export async function burnVisibleWatermark(
   imageDataUrl: string,
   creatorId: string,
-  timestamp: string
+  timestamp: string,
+  displayName?: string
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -20,8 +22,9 @@ export async function burnVisibleWatermark(
       // Draw original image
       ctx.drawImage(img, 0, 0);
 
-      const date = new Date(timestamp).toLocaleDateString();
-      const text = `© ${creatorId} • ${date}`;
+      const name = displayName || creatorId;
+      const date = new Date(timestamp).toLocaleString();
+      const text = `© ${name} • ${date}`;
 
       // Diagonal repeating watermark
       ctx.save();

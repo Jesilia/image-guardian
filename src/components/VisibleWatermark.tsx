@@ -1,4 +1,5 @@
 import { useUserRole } from '@/hooks/useUserRole';
+import { useAuth } from '@/hooks/useAuth';
 import { Shield } from 'lucide-react';
 
 interface VisibleWatermarkProps {
@@ -9,19 +10,22 @@ interface VisibleWatermarkProps {
 
 /**
  * Role-based visible watermark overlay.
+ * Shows the user's display name (or email) and timestamp.
  * - Admin/Creator: Full semi-transparent copyright overlay
  * - Public (viewer/unauthenticated): Nothing visible
  */
 export function VisibleWatermark({ creatorId, timestamp, className = '' }: VisibleWatermarkProps) {
   const { canSeeVisibleWatermark, loading } = useUserRole();
+  const { user } = useAuth();
 
   if (loading || !canSeeVisibleWatermark) return null;
 
-  const date = new Date(timestamp).toLocaleDateString();
+  const displayName = user?.user_metadata?.full_name || user?.email || creatorId;
+  const date = new Date(timestamp).toLocaleString();
 
   return (
     <div className={`absolute inset-0 pointer-events-none ${className}`}>
-      {/* Diagonal repeating watermark text */}
+      {/* Diagonal repeating watermark text — name + timestamp */}
       <div className="absolute inset-0 overflow-hidden opacity-[0.08]">
         <div className="absolute inset-[-50%] flex flex-wrap gap-16 rotate-[-30deg] items-center justify-center">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -29,7 +33,7 @@ export function VisibleWatermark({ creatorId, timestamp, className = '' }: Visib
               key={i}
               className="text-foreground text-lg font-bold whitespace-nowrap select-none"
             >
-              © {creatorId} • {date}
+              © {displayName} • {date}
             </span>
           ))}
         </div>
