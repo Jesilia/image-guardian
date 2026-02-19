@@ -42,10 +42,11 @@ export interface RegistryEntry {
 }
 
 export interface VerificationResult {
-  status: 'registered' | 'unregistered';
+  status: 'genuine' | 'tampered';
   extractedData: ExtractedWatermark | null;
   currentHash: string;
   registryEntry: RegistryEntry | null;
+  confidence: 'exact_hash' | 'dwt_metadata' | 'none';
 }
 
 // QIM (Quantization Index Modulation) step size — larger = more robust but more visible
@@ -508,10 +509,11 @@ export async function verifyImage(
     if (!wmError && wmEntries && wmEntries.length > 0) {
       const registryEntry = wmEntries[0] as RegistryEntry;
       return {
-        status: 'registered',
+        status: 'genuine',
         extractedData,
         currentHash,
         registryEntry,
+        confidence: currentHash === registryEntry.image_hash ? 'exact_hash' : 'dwt_metadata',
       };
     }
 
@@ -523,7 +525,7 @@ export async function verifyImage(
 
     if (localEntry) {
       return {
-        status: 'registered',
+        status: 'genuine',
         extractedData,
         currentHash,
         registryEntry: {
@@ -534,6 +536,7 @@ export async function verifyImage(
           image_hash: localEntry.imageHash,
           created_at: localEntry.createdAt,
         },
+        confidence: currentHash === localEntry.imageHash ? 'exact_hash' : 'dwt_metadata',
       };
     }
   }
@@ -548,18 +551,20 @@ export async function verifyImage(
   if (!hashError && hashEntries && hashEntries.length > 0) {
     const registryEntry = hashEntries[0] as RegistryEntry;
     return {
-      status: 'registered',
+      status: 'genuine',
       extractedData,
       currentHash,
       registryEntry,
+      confidence: 'exact_hash',
     };
   }
 
   return {
-    status: 'unregistered',
+    status: 'tampered',
     extractedData,
     currentHash,
     registryEntry: null,
+    confidence: 'none',
   };
 }
 

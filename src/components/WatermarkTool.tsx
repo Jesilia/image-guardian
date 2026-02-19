@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Upload, Wand2, Download, Shield, Clock, Hash, Copy, Check, Search } from 'lucide-react';
+import { Upload, Wand2, Download, Shield, Clock, Hash, Copy, Check, Search, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
+import { VisibleWatermark } from '@/components/VisibleWatermark';
+import { burnVisibleWatermark } from '@/lib/visibleWatermark';
 import { toast } from 'sonner';
 import {
   embedWatermark,
@@ -117,11 +119,20 @@ export function WatermarkTool({ initialImageUrl, onVerify }: WatermarkToolProps)
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = (withVisibleWatermark = false) => {
     if (!result) return;
     const filename = `watermarked_${Date.now()}.png`;
-    downloadImage(result.watermarkedImageUrl, filename);
-    toast.success('Image downloaded');
+    if (withVisibleWatermark) {
+      burnVisibleWatermark(result.watermarkedImageUrl, creatorId, result.ledgerEntry.timestamp)
+        .then((burnedUrl) => {
+          downloadImage(burnedUrl, filename);
+          toast.success('Downloaded with visible watermark');
+        })
+        .catch(() => toast.error('Failed to burn visible watermark'));
+    } else {
+      downloadImage(result.watermarkedImageUrl, filename);
+      toast.success('Image downloaded');
+    }
   };
 
   const copyHash = () => {
@@ -295,24 +306,34 @@ export function WatermarkTool({ initialImageUrl, onVerify }: WatermarkToolProps)
       {result && (
         <div className="space-y-4 animate-slide-up">
           <div className="glass-panel p-4 border-primary/30">
-            <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <h3 className="text-sm font-medium text-primary">Watermarked Image</h3>
-              <Button onClick={handleDownload} size="sm" className="bg-primary hover:bg-primary/90">
-                <Download className="w-4 h-4 mr-2" />
-                Download
-              </Button>
-              {onVerify && (
-                <Button onClick={() => onVerify(result.watermarkedImageUrl)} size="sm" variant="outline">
-                  <Search className="w-4 h-4 mr-2" />
-                  Verify
+              <div className="flex items-center gap-2">
+                <Button onClick={() => handleDownload(false)} size="sm" className="bg-primary hover:bg-primary/90">
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
                 </Button>
-              )}
+                <Button onClick={() => handleDownload(true)} size="sm" variant="outline">
+                  <Eye className="w-4 h-4 mr-2" />
+                  Download + Visible
+                </Button>
+                {onVerify && (
+                  <Button onClick={() => onVerify(result.watermarkedImageUrl)} size="sm" variant="outline">
+                    <Search className="w-4 h-4 mr-2" />
+                    Verify
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="relative rounded-lg overflow-hidden bg-muted/20">
               <img
                 src={result.watermarkedImageUrl}
                 alt="Watermarked"
                 className="max-w-full h-auto mx-auto max-h-[300px] object-contain"
+              />
+              <VisibleWatermark
+                creatorId={creatorId}
+                timestamp={result.ledgerEntry.timestamp}
               />
             </div>
           </div>
