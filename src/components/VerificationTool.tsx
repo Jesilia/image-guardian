@@ -20,9 +20,10 @@ const stepLabels: Record<VerificationStep, string> = {
 
 interface VerificationToolProps {
   initialImageUrl?: string | null;
+  initialImageDataUrl?: string | null;
 }
 
-export function VerificationTool({ initialImageUrl }: VerificationToolProps) {
+export function VerificationTool({ initialImageUrl, initialImageDataUrl }: VerificationToolProps) {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<VerificationStep>('idle');
   const [result, setResult] = useState<VerificationResult | null>(null);
@@ -33,6 +34,14 @@ export function VerificationTool({ initialImageUrl }: VerificationToolProps) {
       handleImageUrl(url);
     }
   }, [initialImageUrl]);
+
+  useEffect(() => {
+    if (initialImageDataUrl) {
+      setSourceImage(initialImageDataUrl);
+      setResult(null);
+      setCurrentStep('idle');
+    }
+  }, [initialImageDataUrl]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -10,7 +10,14 @@ const Index = () => {
   const params = new URLSearchParams(window.location.search);
   const imageUrl = params.get('image');
   const verifyUrl = params.get('verify');
-  const [defaultTab] = useState(verifyUrl ? 'verify' : 'watermark');
+  const initialTab = verifyUrl ? 'verify' : 'watermark';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [verifyImageDataUrl, setVerifyImageDataUrl] = useState<string | null>(null);
+
+  const handleVerifyWatermarked = (dataUrl: string) => {
+    setVerifyImageDataUrl(dataUrl);
+    setActiveTab('verify');
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,7 +68,7 @@ const Index = () => {
         <div className="grid gap-8 lg:grid-cols-[1fr,380px]">
           {/* Left Column - Main Tool */}
           <div className="space-y-6">
-            <Tabs defaultValue={defaultTab} key={defaultTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full grid grid-cols-2">
                 <TabsTrigger value="watermark" className="flex items-center gap-2">
                   <Shield className="w-4 h-4" />
@@ -75,11 +82,11 @@ const Index = () => {
 
               <TabsContent value="watermark" className="mt-6 space-y-6">
                 <BookmarkletSection />
-                <WatermarkTool initialImageUrl={imageUrl} />
+                <WatermarkTool initialImageUrl={imageUrl} onVerify={handleVerifyWatermarked} />
               </TabsContent>
 
               <TabsContent value="verify" className="mt-6">
-                <VerificationTool initialImageUrl={verifyUrl} />
+                <VerificationTool initialImageUrl={verifyUrl} initialImageDataUrl={verifyImageDataUrl} />
               </TabsContent>
             </Tabs>
           </div>

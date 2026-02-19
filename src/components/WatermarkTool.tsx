@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Upload, Wand2, Download, Shield, Clock, Hash, Copy, Check } from 'lucide-react';
+import { Upload, Wand2, Download, Shield, Clock, Hash, Copy, Check, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,9 +17,10 @@ import {
 
 interface WatermarkToolProps {
   initialImageUrl?: string | null;
+  onVerify?: (watermarkedDataUrl: string) => void;
 }
 
-export function WatermarkTool({ initialImageUrl }: WatermarkToolProps) {
+export function WatermarkTool({ initialImageUrl, onVerify }: WatermarkToolProps) {
   const { user } = useAuth();
   const [prompt, setPrompt] = useState('');
   const [sourceImage, setSourceImage] = useState<string | null>(null);
@@ -300,6 +301,12 @@ export function WatermarkTool({ initialImageUrl }: WatermarkToolProps) {
                 <Download className="w-4 h-4 mr-2" />
                 Download
               </Button>
+              {onVerify && (
+                <Button onClick={() => onVerify(result.watermarkedImageUrl)} size="sm" variant="outline">
+                  <Search className="w-4 h-4 mr-2" />
+                  Verify
+                </Button>
+              )}
             </div>
             <div className="relative rounded-lg overflow-hidden bg-muted/20">
               <img

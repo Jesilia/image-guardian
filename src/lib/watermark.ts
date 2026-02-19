@@ -49,7 +49,7 @@ export interface VerificationResult {
 }
 
 // QIM (Quantization Index Modulation) step size — larger = more robust but more visible
-const QIM_STEP = 25;
+const QIM_STEP = 50;
 // Minimum tile size for block-based embedding (watermark is tiled across image)
 const MIN_TILE_SIZE = 64;
 
@@ -424,54 +424,55 @@ export async function extractWatermark(imageDataUrl: string): Promise<ExtractedW
         // Apply DWT
         const { LH, HL, HH } = dwt2D(yChannel);
         
-        // Try different payload lengths to find a valid watermark
-        // Typical payload: "user@email.com|2025-01-01T00:00:00.000Z" = ~50 chars = 400 bits
-        const maxChars = 128;
+        // Extract a large buffer and search for the pattern inside it
+        // Use a large payload size and scan the decoded string for the pattern
+        const maxPayloadBits = 1024 * 8; // 1024 chars max
+        const actualBits = Math.min(maxPayloadBits, LH.length * (LH[0]?.length || 0));
         
-        for (let payloadChars = 20; payloadChars <= maxChars; payloadChars++) {
-          const payloadBits = payloadChars * 8;
-          
-          // Extract from all 3 bands and do majority voting across bands
-          const bitsLH = extractFromBand(LH, payloadBits);
-          const bitsHL = extractFromBand(HL, payloadBits);
-          const bitsHH = extractFromBand(HH, payloadBits);
-          
-          // Cross-band majority vote
-          const finalBits: number[] = [];
-          for (let i = 0; i < payloadBits; i++) {
-            const sum = bitsLH[i] + bitsHL[i] + bitsHH[i];
-            finalBits.push(sum >= 2 ? 1 : 0);
-          }
-          
-          const rawString = binaryToString(finalBits);
-          
-          // Look for creatorId|timestamp pattern
-          const pipeIndex = rawString.indexOf('|');
-          if (pipeIndex > 0 && pipeIndex < rawString.length - 1) {
-            const creatorId = rawString.substring(0, pipeIndex).trim();
-            let timestampEnd = rawString.indexOf('Z', pipeIndex);
-            if (timestampEnd === -1) {
-              timestampEnd = Math.min(pipeIndex + 30, rawString.length);
-            } else {
-              timestampEnd += 1;
-            }
-            const timestamp = rawString.substring(pipeIndex + 1, timestampEnd).trim();
-            
-            // Validate: creatorId should be printable ASCII, timestamp should look like ISO
-            const isValidCreator = creatorId.length >= 1 && /^[\x20-\x7E]+$/.test(creatorId);
-            const isValidTimestamp = timestamp.length >= 10 && /^\d{4}-\d{2}/.test(timestamp);
-            
-            if (isValidCreator && isValidTimestamp) {
-              resolve({
-                creatorId,
-                timestamp,
-                raw: rawString.substring(0, timestampEnd),
-              });
-              return;
-            }
-          }
+        // Extract from all 3 bands with the full available length
+        const bitsLH = extractFromBand(LH, actualBits);
+        const bitsHL = extractFromBand(HL, actualBits);
+        const bitsHH = extractFromBand(HH, actualBits);
+        
+        // Cross-band majority vote
+        const finalBits: number[] = [];
+        for (let i = 0; i < actualBits; i++) {
+          const sum = bitsLH[i] + bitsHL[i] + bitsHH[i];
+          finalBits.push(sum >= 2 ? 1 : 0);
         }
         
+        const rawString = binaryToString(finalBits);
+        console.log('[WM Extract] Raw extracted string (first 200 chars):', rawString.substring(0, 200));
+        
+        // Search for email|ISO-timestamp pattern anywhere in the extracted string
+        // Pattern: something@something.something|YYYY-MM-DDTHH:MM:SS.sssZ
+        const isoPattern = /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})\|(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/;
+        const match = rawString.match(isoPattern);
+        
+        if (match) {
+          console.log('[WM Extract] Found watermark:', match[1], match[2]);
+          resolve({
+            creatorId: match[1],
+            timestamp: match[2],
+            raw: match[0],
+          });
+          return;
+        }
+        
+        // Fallback: look for any creatorId|timestamp-like pattern
+        const loosePattern = /([\x20-\x7E]{3,60})\|(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)/;
+        const looseMatch = rawString.match(loosePattern);
+        if (looseMatch) {
+          console.log('[WM Extract] Found watermark (loose):', looseMatch[1], looseMatch[2]);
+          resolve({
+            creatorId: looseMatch[1].trim(),
+            timestamp: looseMatch[2].trim(),
+            raw: looseMatch[0],
+          });
+          return;
+        }
+        
+        console.log('[WM Extract] No watermark pattern found');
         resolve(null);
       } catch (error) {
         reject(error);
