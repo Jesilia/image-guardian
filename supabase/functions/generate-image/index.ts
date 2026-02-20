@@ -110,11 +110,11 @@ serve(async (req) => {
       throw new Error(`AI gateway error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const aiData = await response.json();
     console.log("AI response received for user:", user.id);
 
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const textContent = data.choices?.[0]?.message?.content || "";
+    const imageUrl = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const textContent = aiData.choices?.[0]?.message?.content || "";
 
     if (!imageUrl) {
       throw new Error("No image was generated. Please try a different prompt.");
