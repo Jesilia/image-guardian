@@ -29,14 +29,16 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data, error: authError } = await supabaseClient.auth.getClaims(token);
+    if (authError || !data?.claims) {
       return new Response(
         JSON.stringify({ error: "Invalid authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const user = { id: data.claims.sub, email: data.claims.email as string | undefined };
     console.log("Authenticated user:", user.id);
 
     const { prompt } = await req.json();
