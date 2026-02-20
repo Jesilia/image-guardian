@@ -112,11 +112,21 @@ serve(async (req) => {
 
     const aiData = await response.json();
     console.log("AI response received for user:", user.id);
+    console.log("AI response keys:", JSON.stringify(Object.keys(aiData.choices?.[0]?.message || {})));
 
-    const imageUrl = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const textContent = aiData.choices?.[0]?.message?.content || "";
+    // Try both possible response structures
+    const imageUrl =
+      aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url ||
+      aiData.choices?.[0]?.message?.content?.match?.(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/)?.[0];
+
+    const textContent =
+      typeof aiData.choices?.[0]?.message?.content === "string" &&
+      !aiData.choices?.[0]?.message?.content?.startsWith("data:image")
+        ? aiData.choices?.[0]?.message?.content
+        : "";
 
     if (!imageUrl) {
+      console.error("No image URL found. Message structure:", JSON.stringify(aiData.choices?.[0]?.message).slice(0, 500));
       throw new Error("No image was generated. Please try a different prompt.");
     }
 
