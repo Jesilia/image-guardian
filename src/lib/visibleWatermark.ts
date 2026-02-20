@@ -47,9 +47,9 @@ export async function burnVisibleWatermark(
       }
       ctx.restore();
 
-      // Corner badge
+      // Corner badge showing username (not "Protected")
       ctx.save();
-      const badgeText = '🛡 Protected';
+      const badgeText = `© ${name}`;
       const badgeFontSize = Math.max(10, Math.round(img.width / 50));
       ctx.font = `bold ${badgeFontSize}px sans-serif`;
       const bw = ctx.measureText(badgeText).width + 16;
