@@ -15,6 +15,7 @@ import {
   downloadImage,
   saveLedgerEntry,
   WatermarkResult,
+  LedgerEntry,
 } from '@/lib/watermark';
 
 interface WatermarkToolProps {
@@ -121,16 +122,41 @@ export function WatermarkTool({ initialImageUrl, onVerify }: WatermarkToolProps)
 
   const displayName = user?.user_metadata?.full_name || user?.email || creatorId;
 
-  const handleDownload = (withVisibleWatermark = false) => {
+  const handleDownload = async (withVisibleWatermark = false) => {
     if (!result) return;
     const filename = `watermarked_${Date.now()}.png`;
     if (withVisibleWatermark) {
-      burnVisibleWatermark(result.watermarkedImageUrl, creatorId, result.ledgerEntry.timestamp, displayName)
-        .then((burnedUrl) => {
-          downloadImage(burnedUrl, filename);
-          toast.success('Downloaded with visible watermark');
-        })
-        .catch(() => toast.error('Failed to burn visible watermark'));
+      try {
+        // 1. Burn visible watermark on top of the invisible-watermarked image
+        const burnedUrl = await burnVisibleWatermark(
+          result.watermarkedImageUrl,
+          creatorId,
+          result.ledgerEntry.timestamp,
+          displayName
+        );
+
+        // 2. Re-embed the invisible watermark into the burned image so extraction still works
+        const rewatermarked = await embedWatermark(burnedUrl, {
+          creatorId: creatorId.trim(),
+          timestamp: result.ledgerEntry.timestamp,
+          prompt: result.ledgerEntry.prompt,
+        });
+
+        // 3. Register the new hash so it verifies as Registered
+        const newEntry: LedgerEntry = {
+          ...rewatermarked.ledgerEntry,
+          id: crypto.randomUUID(),
+          creatorId: result.ledgerEntry.creatorId,
+          timestamp: result.ledgerEntry.timestamp,
+          prompt: result.ledgerEntry.prompt,
+        };
+        await saveLedgerEntry(newEntry);
+
+        downloadImage(rewatermarked.watermarkedImageUrl, filename);
+        toast.success('Downloaded with visible watermark — both images verify as Registered');
+      } catch {
+        toast.error('Failed to burn visible watermark');
+      }
     } else {
       downloadImage(result.watermarkedImageUrl, filename);
       toast.success('Image downloaded');

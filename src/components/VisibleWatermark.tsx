@@ -39,10 +39,10 @@ export function VisibleWatermark({ creatorId, timestamp, className = '' }: Visib
         </div>
       </div>
 
-      {/* Corner badge */}
+      {/* Corner badge — show username */}
       <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-primary/80 text-primary-foreground text-[10px] font-semibold px-2 py-1 rounded-full backdrop-blur-sm">
         <Shield className="w-3 h-3" />
-        <span>Protected</span>
+        <span>© {displayName}</span>
       </div>
     </div>
   );
