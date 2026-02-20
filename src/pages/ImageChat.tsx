@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { embedWatermark, downloadImage } from '@/lib/watermark';
+import { burnVisibleWatermark } from '@/lib/visibleWatermark';
 import { VerifyPanel } from '@/components/VerifyPanel';
 import { BookmarkletSection } from '@/components/BookmarkletSection';
 import { Link } from 'react-router-dom';
@@ -91,21 +92,39 @@ export default function ImageChat() {
       if (autoWatermark && finalImageUrl) {
         try {
           const timestamp = new Date().toISOString();
-          const result = await embedWatermark(finalImageUrl, {
+
+          // Step 1: embed invisible watermark
+          const invisResult = await embedWatermark(finalImageUrl, {
             creatorId: user.email || user.id,
             timestamp,
             prompt: userMessage.content,
           });
 
-          finalImageUrl = result.watermarkedImageUrl;
+          // Step 2: burn visible watermark on top
+          const displayName = user.email?.split('@')[0] || user.id;
+          const visibleResult = await burnVisibleWatermark(
+            invisResult.watermarkedImageUrl,
+            user.email || user.id,
+            timestamp,
+            displayName
+          );
+
+          // Step 3: re-embed invisible watermark into the visibly-watermarked image
+          const finalResult = await embedWatermark(visibleResult, {
+            creatorId: user.email || user.id,
+            timestamp,
+            prompt: userMessage.content,
+          });
+
+          finalImageUrl = finalResult.watermarkedImageUrl;
           isWatermarked = true;
-          watermarkHash = result.hash;
+          watermarkHash = finalResult.hash;
 
           await supabase.from('watermark_registry').insert({
             creator_id: user.email || user.id,
             timestamp,
             prompt: userMessage.content,
-            image_hash: result.hash,
+            image_hash: finalResult.hash,
           });
 
           toast.success('Image generated and watermarked!');
