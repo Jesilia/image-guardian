@@ -26,6 +26,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<VerificationStep>('idle');
   const [result, setResult] = useState<VerificationResult | null>(null);
+  const [extractedWm, setExtractedWm] = useState<ExtractedWatermark | null>(null);
 
   useEffect(() => {
     if (initialImageUrl) {
