@@ -108,7 +108,7 @@ export default function ImageChat() {
             creator_id: user.email || user.id,
             timestamp,
             prompt: userMessage.content,
-            image_hash: finalResult.hash,
+            image_hash: result.hash,
           });
 
           toast.success('Image generated and watermarked!');
