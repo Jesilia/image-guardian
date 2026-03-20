@@ -177,7 +177,7 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
         <div className="glass-panel p-4 animate-fade-in">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-foreground">Image to Verify</h3>
-            <Button variant="ghost" size="sm" onClick={() => { setSourceImage(null); setResult(null); setCurrentStep('idle'); }} className="text-destructive hover:text-destructive/80">Remove</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setSourceImage(null); setResult(null); setExtractedWm(null); setCurrentStep('idle'); }} className="text-destructive hover:text-destructive/80">Remove</Button>
           </div>
           <div className="relative rounded-lg overflow-hidden bg-muted/20">
             <img src={sourceImage} alt="Image to verify" className="max-w-full h-auto mx-auto max-h-[250px] object-contain" />
