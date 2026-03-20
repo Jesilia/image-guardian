@@ -104,6 +104,7 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
       await new Promise(r => setTimeout(r, 300));
       setCurrentStep('extracting');
       const extracted = await extractWatermark(sourceImage);
+      setExtractedWm(extracted);
       await new Promise(r => setTimeout(r, 400));
       setCurrentStep('hashing');
       await new Promise(r => setTimeout(r, 300));
