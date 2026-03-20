@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { loadImageAsDataUrl, extractWatermark, verifyImage, VerificationResult, ExtractedWatermark } from '@/lib/watermark';
+import { WatermarkOverlay } from '@/components/WatermarkOverlay';
 
 type VerificationStep = 'idle' | 'uploading' | 'extracting' | 'hashing' | 'looking_up' | 'comparing' | 'complete';
 
@@ -40,6 +41,7 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
     if (initialImageDataUrl) {
       setSourceImage(initialImageDataUrl);
       setResult(null);
+      setExtractedWm(null);
       setCurrentStep('idle');
     }
   }, [initialImageDataUrl]);
@@ -55,6 +57,7 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
     reader.onload = () => {
       setSourceImage(reader.result as string);
       setResult(null);
+      setExtractedWm(null);
       setCurrentStep('idle');
     };
     reader.readAsDataURL(file);
@@ -66,6 +69,7 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
       const dataUrl = await loadImageAsDataUrl(url);
       setSourceImage(dataUrl);
       setResult(null);
+      setExtractedWm(null);
       setCurrentStep('idle');
       toast.success('Image loaded');
     } catch {
@@ -85,6 +89,7 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
           reader.onload = () => {
             setSourceImage(reader.result as string);
             setResult(null);
+            setExtractedWm(null);
             setCurrentStep('idle');
           };
           reader.readAsDataURL(file);
@@ -129,6 +134,7 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
   };
 
   const isProcessing = currentStep !== 'idle' && currentStep !== 'complete';
+  const reset = () => { setSourceImage(null); setResult(null); setExtractedWm(null); setCurrentStep('idle'); };
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -172,31 +178,20 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
         </div>
       </div>
 
-      {/* Image Preview */}
+      {/* Image Preview with watermark overlay */}
       {sourceImage && (
         <div className="glass-panel p-4 animate-fade-in">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-foreground">Image to Verify</h3>
-            <Button variant="ghost" size="sm" onClick={() => { setSourceImage(null); setResult(null); setExtractedWm(null); setCurrentStep('idle'); }} className="text-destructive hover:text-destructive/80">Remove</Button>
+            <Button variant="ghost" size="sm" onClick={reset} className="text-destructive hover:text-destructive/80">Remove</Button>
           </div>
-          <div className="relative rounded-lg overflow-hidden bg-muted/20">
-            <img src={sourceImage} alt="Image to verify" className="max-w-full h-auto mx-auto max-h-[250px] object-contain" />
-            {extractedWm && (
-              <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
-                <div
-                  className="select-none whitespace-nowrap font-bold opacity-[0.3] tracking-widest"
-                  style={{
-                    transform: 'rotate(-35deg)',
-                    fontSize: 'clamp(0.8rem, 3.5vw, 2rem)',
-                    color: 'white',
-                    textShadow: '0 1px 6px rgba(0,0,0,0.5)',
-                    letterSpacing: '0.15em',
-                  }}
-                >
-                  © {extractedWm.creatorId} • {new Date(extractedWm.timestamp).toLocaleString()}
-                </div>
-              </div>
-            )}
+          <div className="relative rounded-lg overflow-hidden bg-muted/20 inline-flex w-full justify-center">
+            <div className="relative inline-block max-w-full">
+              <img src={sourceImage} alt="Image to verify" className="block max-w-full h-auto max-h-[300px] object-contain" />
+              {extractedWm && (
+                <WatermarkOverlay creatorId={extractedWm.creatorId} timestamp={extractedWm.timestamp} />
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -267,7 +262,7 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
             </Card>
           )}
 
-          <Button variant="outline" onClick={() => { setSourceImage(null); setResult(null); setExtractedWm(null); setCurrentStep('idle'); }} className="w-full">
+          <Button variant="outline" onClick={reset} className="w-full">
             Verify Another Image
           </Button>
         </div>

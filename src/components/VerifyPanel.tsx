@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { loadImageAsDataUrl, extractWatermark, verifyImage, VerificationResult, ExtractedWatermark } from '@/lib/watermark';
+import { WatermarkOverlay } from '@/components/WatermarkOverlay';
 
 type VerificationStep = 'idle' | 'uploading' | 'extracting' | 'hashing' | 'looking_up' | 'comparing' | 'complete';
 
@@ -40,6 +41,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
       const dataUrl = await loadImageAsDataUrl(url);
       setSourceImage(dataUrl);
       setResult(null);
+      setExtractedWm(null);
       setCurrentStep('idle');
       toast.success('Image loaded');
     } catch {
@@ -59,6 +61,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
     reader.onload = () => {
       setSourceImage(reader.result as string);
       setResult(null);
+      setExtractedWm(null);
       setCurrentStep('idle');
     };
     reader.readAsDataURL(file);
@@ -75,6 +78,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
           reader.onload = () => {
             setSourceImage(reader.result as string);
             setResult(null);
+            setExtractedWm(null);
             setCurrentStep('idle');
           };
           reader.readAsDataURL(file);
@@ -115,6 +119,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
   };
 
   const isProcessing = currentStep !== 'idle' && currentStep !== 'complete';
+  const reset = () => { setSourceImage(null); setResult(null); setExtractedWm(null); setCurrentStep('idle'); };
 
   return (
     <div className="space-y-4">
@@ -150,26 +155,15 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
         }}>Load</Button>
       </div>
 
-      {/* Preview */}
+      {/* Preview with watermark overlay */}
       {sourceImage && (
-        <div className="relative rounded-lg overflow-hidden bg-muted/20 border border-border">
-          <img src={sourceImage} alt="To verify" className="max-w-full h-auto mx-auto max-h-[200px] object-contain" />
-          {extractedWm && (
-            <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
-              <div
-                className="select-none whitespace-nowrap font-bold opacity-[0.3] tracking-widest"
-                style={{
-                  transform: 'rotate(-35deg)',
-                  fontSize: 'clamp(0.7rem, 3vw, 1.5rem)',
-                  color: 'white',
-                  textShadow: '0 1px 6px rgba(0,0,0,0.5)',
-                  letterSpacing: '0.15em',
-                }}
-              >
-                © {extractedWm.creatorId} • {new Date(extractedWm.timestamp).toLocaleString()}
-              </div>
-            </div>
-          )}
+        <div className="rounded-lg overflow-hidden bg-muted/20 border border-border flex justify-center">
+          <div className="relative inline-block max-w-full">
+            <img src={sourceImage} alt="To verify" className="block max-w-full h-auto max-h-[200px] object-contain" />
+            {extractedWm && (
+              <WatermarkOverlay creatorId={extractedWm.creatorId} timestamp={extractedWm.timestamp} />
+            )}
+          </div>
         </div>
       )}
 
@@ -232,12 +226,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
             </div>
           )}
 
-          <Button variant="outline" size="sm" onClick={() => {
-            setSourceImage(null);
-            setResult(null);
-            setExtractedWm(null);
-            setCurrentStep('idle');
-          }} className="w-full">
+          <Button variant="outline" size="sm" onClick={reset} className="w-full">
             Verify Another Image
           </Button>
         </div>

@@ -353,16 +353,18 @@ export function WatermarkTool({ initialImageUrl, onVerify }: WatermarkToolProps)
                 )}
               </div>
             </div>
-            <div className="relative rounded-lg overflow-hidden bg-muted/20">
-              <img
-                src={result.watermarkedImageUrl}
-                alt="Watermarked"
-                className="max-w-full h-auto mx-auto max-h-[300px] object-contain"
-              />
-              <VisibleWatermark
-                creatorId={creatorId}
-                timestamp={result.ledgerEntry.timestamp}
-              />
+            <div className="relative rounded-lg overflow-hidden bg-muted/20 flex justify-center">
+              <div className="relative inline-block max-w-full">
+                <img
+                  src={result.watermarkedImageUrl}
+                  alt="Watermarked"
+                  className="block max-w-full h-auto max-h-[300px] object-contain"
+                />
+                <VisibleWatermark
+                  creatorId={creatorId}
+                  timestamp={result.ledgerEntry.timestamp}
+                />
+              </div>
             </div>
           </div>
 
