@@ -93,18 +93,32 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
       toast.error('Please upload an image first');
       return;
     }
+
     try {
       setCurrentStep('uploading');
       await new Promise(r => setTimeout(r, 300));
       setCurrentStep('extracting');
+
       const extracted = await extractWatermark(sourceImage);
-      setExtractedWm(extracted);
+      if (extracted) {
+        setExtractedWm(extracted);
+      }
+
       setCurrentStep('hashing');
       await new Promise(r => setTimeout(r, 300));
       setCurrentStep('looking_up');
       await new Promise(r => setTimeout(r, 300));
       setCurrentStep('comparing');
+
       const verificationResult = await verifyImage(sourceImage, extracted);
+      if (!extracted && verificationResult.registryEntry) {
+        setExtractedWm({
+          creatorId: verificationResult.registryEntry.creator_id,
+          timestamp: verificationResult.registryEntry.timestamp,
+          raw: `${verificationResult.registryEntry.creator_id}|${verificationResult.registryEntry.timestamp}`,
+        });
+      }
+
       await new Promise(r => setTimeout(r, 300));
       setCurrentStep('complete');
       setResult(verificationResult);
@@ -120,6 +134,13 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
 
   const isProcessing = currentStep !== 'idle' && currentStep !== 'complete';
   const reset = () => { setSourceImage(null); setResult(null); setExtractedWm(null); setCurrentStep('idle'); };
+  const overlayWm = extractedWm ?? (result?.registryEntry
+    ? {
+        creatorId: result.registryEntry.creator_id,
+        timestamp: result.registryEntry.timestamp,
+        raw: `${result.registryEntry.creator_id}|${result.registryEntry.timestamp}`,
+      }
+    : null);
 
   return (
     <div className="space-y-4">
@@ -160,8 +181,8 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
         <div className="rounded-lg overflow-hidden bg-muted/20 border border-border flex justify-center">
           <div className="relative inline-block max-w-full">
             <img src={sourceImage} alt="To verify" className="block max-w-full h-auto max-h-[200px] object-contain" />
-            {extractedWm && (
-              <WatermarkOverlay creatorId={extractedWm.creatorId} timestamp={extractedWm.timestamp} />
+            {overlayWm && (
+              <WatermarkOverlay creatorId={overlayWm.creatorId} timestamp={overlayWm.timestamp} />
             )}
           </div>
         </div>

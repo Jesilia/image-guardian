@@ -570,7 +570,23 @@ export async function extractWatermark(imageDataUrl: string): Promise<ExtractedW
         // We try a range of payload lengths. The real payload is ≤ MAX_PAYLOAD_CHARS chars.
         // encodedBits length = rawBits * RS_REDUNDANCY
         // We try charLen from 30 to MAX_PAYLOAD_CHARS, step 2
-        const isoPattern = /([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})\|(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/;
+        const extractPayload = (decoded: string): ExtractedWatermark | null => {
+          const emailMatch = decoded.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})\|(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/);
+          if (emailMatch) {
+            const creatorId = emailMatch[1].trim();
+            const timestamp = emailMatch[2];
+            return { creatorId, timestamp, raw: `${creatorId}|${timestamp}` };
+          }
+
+          const genericMatch = decoded.match(/([^|\n\r\t]{1,120})\|(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/);
+          if (!genericMatch) return null;
+
+          const creatorId = genericMatch[1].trim();
+          if (!creatorId) return null;
+
+          const timestamp = genericMatch[2];
+          return { creatorId, timestamp, raw: `${creatorId}|${timestamp}` };
+        };
 
         for (let charLen = 30; charLen <= MAX_PAYLOAD_CHARS; charLen += 2) {
           const encodedBitLen = charLen * 8 * RS_REDUNDANCY;
@@ -590,11 +606,11 @@ export async function extractWatermark(imageDataUrl: string): Promise<ExtractedW
           const encodedBits = globalVotes.map(([v0, v1]) => v1 >= v0 ? 1 : 0);
           const rawBits = rsDecode(encodedBits, charLen * 8);
           const rawString = binaryToString(rawBits);
+          const parsed = extractPayload(rawString);
 
-          const match = rawString.match(isoPattern);
-          if (match) {
-            console.log(`[WM v3 Extract] ✓ Found watermark at charLen=${charLen}:`, match[1], match[2]);
-            resolve({ creatorId: match[1], timestamp: match[2], raw: match[0] });
+          if (parsed) {
+            console.log(`[WM v3 Extract] ✓ Found watermark at charLen=${charLen}:`, parsed.creatorId, parsed.timestamp);
+            resolve(parsed);
             return;
           }
         }
@@ -614,10 +630,11 @@ export async function extractWatermark(imageDataUrl: string): Promise<ExtractedW
 
           const rawBits = globalVotes.map(([v0, v1]) => v1 >= v0 ? 1 : 0);
           const rawString = binaryToString(rawBits);
-          const match = rawString.match(isoPattern);
-          if (match) {
-            console.log(`[WM v3 Extract] ✓ Found watermark (raw) at charLen=${charLen}`);
-            resolve({ creatorId: match[1], timestamp: match[2], raw: match[0] });
+          const parsed = extractPayload(rawString);
+
+          if (parsed) {
+            console.log(`[WM v3 Extract] ✓ Found watermark (raw) at charLen=${charLen}:`, parsed.creatorId, parsed.timestamp);
+            resolve(parsed);
             return;
           }
         }
