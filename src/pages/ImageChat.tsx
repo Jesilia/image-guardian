@@ -258,10 +258,16 @@ export default function ImageChat() {
                     <div className="relative rounded-lg overflow-hidden bg-background/50">
                       <img src={message.imageUrl} alt="Generated" className="max-w-full h-auto max-h-[400px] object-contain" />
                       {message.isWatermarked && (
-                        <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs">
-                          <ShieldCheck className="w-3 h-3" />
-                          Protected
-                        </div>
+                        <>
+                          <VisibleWatermark
+                            creatorId={user.email || user.id}
+                            timestamp={message.timestamp}
+                          />
+                          <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs">
+                            <ShieldCheck className="w-3 h-3" />
+                            Protected
+                          </div>
+                        </>
                       )}
                     </div>
                     
