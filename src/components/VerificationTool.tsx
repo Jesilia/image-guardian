@@ -267,7 +267,7 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
             </Card>
           )}
 
-          <Button variant="outline" onClick={() => { setSourceImage(null); setResult(null); setCurrentStep('idle'); }} className="w-full">
+          <Button variant="outline" onClick={() => { setSourceImage(null); setResult(null); setExtractedWm(null); setCurrentStep('idle'); }} className="w-full">
             Verify Another Image
           </Button>
         </div>
