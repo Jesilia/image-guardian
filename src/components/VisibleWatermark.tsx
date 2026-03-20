@@ -28,11 +28,12 @@ export function VisibleWatermark({ creatorId, timestamp, className = '' }: Visib
       {/* Single large diagonal watermark centered */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div
-          className="select-none whitespace-nowrap text-foreground font-bold opacity-[0.15] tracking-widest"
+          className="select-none whitespace-nowrap font-bold opacity-[0.25] tracking-widest"
           style={{
             transform: 'rotate(-35deg)',
             fontSize: 'clamp(1rem, 4vw, 2.5rem)',
-            textShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            color: 'white',
+            textShadow: '0 1px 6px rgba(0,0,0,0.5)',
             letterSpacing: '0.15em',
           }}
         >
