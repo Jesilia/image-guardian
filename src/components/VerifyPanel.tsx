@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { loadImageAsDataUrl, extractWatermark, verifyImage, VerificationResult } from '@/lib/watermark';
+import { loadImageAsDataUrl, extractWatermark, verifyImage, VerificationResult, ExtractedWatermark } from '@/lib/watermark';
 
 type VerificationStep = 'idle' | 'uploading' | 'extracting' | 'hashing' | 'looking_up' | 'comparing' | 'complete';
 
@@ -26,6 +26,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<VerificationStep>('idle');
   const [result, setResult] = useState<VerificationResult | null>(null);
+  const [extractedWm, setExtractedWm] = useState<ExtractedWatermark | null>(null);
 
   useEffect(() => {
     if (initialImageUrl) {
@@ -93,7 +94,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
       await new Promise(r => setTimeout(r, 300));
       setCurrentStep('extracting');
       const extracted = await extractWatermark(sourceImage);
-      await new Promise(r => setTimeout(r, 400));
+      setExtractedWm(extracted);
       setCurrentStep('hashing');
       await new Promise(r => setTimeout(r, 300));
       setCurrentStep('looking_up');
@@ -151,8 +152,23 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
 
       {/* Preview */}
       {sourceImage && (
-        <div className="rounded-lg overflow-hidden bg-muted/20 border border-border">
+        <div className="relative rounded-lg overflow-hidden bg-muted/20 border border-border">
           <img src={sourceImage} alt="To verify" className="max-w-full h-auto mx-auto max-h-[200px] object-contain" />
+          {extractedWm && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
+              <div
+                className="select-none whitespace-nowrap text-foreground font-bold opacity-[0.18] tracking-widest"
+                style={{
+                  transform: 'rotate(-35deg)',
+                  fontSize: 'clamp(0.7rem, 3vw, 1.5rem)',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  letterSpacing: '0.15em',
+                }}
+              >
+                © {extractedWm.creatorId} • {new Date(extractedWm.timestamp).toLocaleString()}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -218,6 +234,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
           <Button variant="outline" size="sm" onClick={() => {
             setSourceImage(null);
             setResult(null);
+            setExtractedWm(null);
             setCurrentStep('idle');
           }} className="w-full">
             Verify Another Image
