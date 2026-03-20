@@ -234,6 +234,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
           <Button variant="outline" size="sm" onClick={() => {
             setSourceImage(null);
             setResult(null);
+            setExtractedWm(null);
             setCurrentStep('idle');
           }} className="w-full">
             Verify Another Image
