@@ -181,6 +181,22 @@ export function VerificationTool({ initialImageUrl, initialImageDataUrl }: Verif
           </div>
           <div className="relative rounded-lg overflow-hidden bg-muted/20">
             <img src={sourceImage} alt="Image to verify" className="max-w-full h-auto mx-auto max-h-[250px] object-contain" />
+            {extractedWm && (
+              <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
+                <div
+                  className="select-none whitespace-nowrap font-bold opacity-[0.3] tracking-widest"
+                  style={{
+                    transform: 'rotate(-35deg)',
+                    fontSize: 'clamp(0.8rem, 3.5vw, 2rem)',
+                    color: 'white',
+                    textShadow: '0 1px 6px rgba(0,0,0,0.5)',
+                    letterSpacing: '0.15em',
+                  }}
+                >
+                  © {extractedWm.creatorId} • {new Date(extractedWm.timestamp).toLocaleString()}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
