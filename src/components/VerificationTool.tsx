@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { loadImageAsDataUrl, extractWatermark, verifyImage, VerificationResult } from '@/lib/watermark';
+import { loadImageAsDataUrl, extractWatermark, verifyImage, VerificationResult, ExtractedWatermark } from '@/lib/watermark';
 
 type VerificationStep = 'idle' | 'uploading' | 'extracting' | 'hashing' | 'looking_up' | 'comparing' | 'complete';
 
