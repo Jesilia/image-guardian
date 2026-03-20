@@ -10,8 +10,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { embedWatermark, downloadImage } from '@/lib/watermark';
-import { burnVisibleWatermark } from '@/lib/visibleWatermark';
 import { VerifyPanel } from '@/components/VerifyPanel';
+import { VisibleWatermark } from '@/components/VisibleWatermark';
 import { BookmarkletSection } from '@/components/BookmarkletSection';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -93,38 +93,22 @@ export default function ImageChat() {
         try {
           const timestamp = new Date().toISOString();
 
-          // Step 1: embed invisible watermark
-          const invisResult = await embedWatermark(finalImageUrl, {
+          // Embed invisible watermark only — visible watermark is role-based overlay
+          const result = await embedWatermark(finalImageUrl, {
             creatorId: user.email || user.id,
             timestamp,
             prompt: userMessage.content,
           });
 
-          // Step 2: burn visible watermark on top
-          const displayName = user.email?.split('@')[0] || user.id;
-          const visibleResult = await burnVisibleWatermark(
-            invisResult.watermarkedImageUrl,
-            user.email || user.id,
-            timestamp,
-            displayName
-          );
-
-          // Step 3: re-embed invisible watermark into the visibly-watermarked image
-          const finalResult = await embedWatermark(visibleResult, {
-            creatorId: user.email || user.id,
-            timestamp,
-            prompt: userMessage.content,
-          });
-
-          finalImageUrl = finalResult.watermarkedImageUrl;
+          finalImageUrl = result.watermarkedImageUrl;
           isWatermarked = true;
-          watermarkHash = finalResult.hash;
+          watermarkHash = result.hash;
 
           await supabase.from('watermark_registry').insert({
             creator_id: user.email || user.id,
             timestamp,
             prompt: userMessage.content,
-            image_hash: finalResult.hash,
+            image_hash: result.hash,
           });
 
           toast.success('Image generated and watermarked!');
@@ -274,10 +258,16 @@ export default function ImageChat() {
                     <div className="relative rounded-lg overflow-hidden bg-background/50">
                       <img src={message.imageUrl} alt="Generated" className="max-w-full h-auto max-h-[400px] object-contain" />
                       {message.isWatermarked && (
-                        <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs">
-                          <ShieldCheck className="w-3 h-3" />
-                          Protected
-                        </div>
+                        <>
+                          <VisibleWatermark
+                            creatorId={user.email || user.id}
+                            timestamp={message.timestamp}
+                          />
+                          <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs">
+                            <ShieldCheck className="w-3 h-3" />
+                            Protected
+                          </div>
+                        </>
                       )}
                     </div>
                     
