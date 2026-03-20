@@ -9,10 +9,9 @@ interface VisibleWatermarkProps {
 }
 
 /**
- * Role-based visible watermark overlay.
- * Shows the user's display name (or email) and timestamp.
- * - Admin/Creator: Full semi-transparent copyright overlay
- * - Public (viewer/unauthenticated): Nothing visible
+ * Role-based visible watermark overlay (encrypted).
+ * Only visible to admin/creator users — acts as "decrypted" view.
+ * Public viewers see nothing.
  */
 export function VisibleWatermark({ creatorId, timestamp, className = '' }: VisibleWatermarkProps) {
   const { canSeeVisibleWatermark, loading } = useUserRole();
@@ -22,24 +21,26 @@ export function VisibleWatermark({ creatorId, timestamp, className = '' }: Visib
 
   const displayName = user?.user_metadata?.full_name || user?.email || creatorId;
   const date = new Date(timestamp).toLocaleString();
+  const watermarkText = `© ${displayName} • ${date}`;
 
   return (
-    <div className={`absolute inset-0 pointer-events-none ${className}`}>
-      {/* Diagonal repeating watermark text — name + timestamp */}
-      <div className="absolute inset-0 overflow-hidden opacity-[0.08]">
-        <div className="absolute inset-[-50%] flex flex-wrap gap-16 rotate-[-30deg] items-center justify-center">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <span
-              key={i}
-              className="text-foreground text-lg font-bold whitespace-nowrap select-none"
-            >
-              © {displayName} • {date}
-            </span>
-          ))}
+    <div className={`absolute inset-0 pointer-events-none overflow-hidden ${className}`}>
+      {/* Single large diagonal watermark centered */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          className="select-none whitespace-nowrap text-foreground font-bold opacity-[0.15] tracking-widest"
+          style={{
+            transform: 'rotate(-35deg)',
+            fontSize: 'clamp(1rem, 4vw, 2.5rem)',
+            textShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            letterSpacing: '0.15em',
+          }}
+        >
+          {watermarkText}
         </div>
       </div>
 
-      {/* Corner badge — show username */}
+      {/* Corner badge */}
       <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-primary/80 text-primary-foreground text-[10px] font-semibold px-2 py-1 rounded-full backdrop-blur-sm">
         <Shield className="w-3 h-3" />
         <span>© {displayName}</span>

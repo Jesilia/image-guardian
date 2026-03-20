@@ -10,8 +10,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { embedWatermark, downloadImage } from '@/lib/watermark';
-import { burnVisibleWatermark } from '@/lib/visibleWatermark';
 import { VerifyPanel } from '@/components/VerifyPanel';
+import { VisibleWatermark } from '@/components/VisibleWatermark';
 import { BookmarkletSection } from '@/components/BookmarkletSection';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
