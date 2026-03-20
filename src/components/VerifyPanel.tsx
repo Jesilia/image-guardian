@@ -94,7 +94,7 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
       await new Promise(r => setTimeout(r, 300));
       setCurrentStep('extracting');
       const extracted = await extractWatermark(sourceImage);
-      await new Promise(r => setTimeout(r, 400));
+      setExtractedWm(extracted);
       setCurrentStep('hashing');
       await new Promise(r => setTimeout(r, 300));
       setCurrentStep('looking_up');
