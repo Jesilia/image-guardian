@@ -152,8 +152,23 @@ export function VerifyPanel({ initialImageUrl }: VerifyPanelProps) {
 
       {/* Preview */}
       {sourceImage && (
-        <div className="rounded-lg overflow-hidden bg-muted/20 border border-border">
+        <div className="relative rounded-lg overflow-hidden bg-muted/20 border border-border">
           <img src={sourceImage} alt="To verify" className="max-w-full h-auto mx-auto max-h-[200px] object-contain" />
+          {extractedWm && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
+              <div
+                className="select-none whitespace-nowrap text-foreground font-bold opacity-[0.18] tracking-widest"
+                style={{
+                  transform: 'rotate(-35deg)',
+                  fontSize: 'clamp(0.7rem, 3vw, 1.5rem)',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  letterSpacing: '0.15em',
+                }}
+              >
+                © {extractedWm.creatorId} • {new Date(extractedWm.timestamp).toLocaleString()}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
