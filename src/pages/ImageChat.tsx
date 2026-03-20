@@ -255,8 +255,9 @@ export default function ImageChat() {
                 
                 {message.imageUrl && (
                   <div className="mt-3 space-y-2">
-                    <div className="relative rounded-lg overflow-hidden bg-background/50">
-                      <img src={message.imageUrl} alt="Generated" className="max-w-full h-auto max-h-[400px] object-contain" />
+                    <div className="relative rounded-lg overflow-hidden bg-background/50 flex justify-center">
+                      <div className="relative inline-block max-w-full">
+                        <img src={message.imageUrl} alt="Generated" className="block max-w-full h-auto max-h-[400px] object-contain" />
                       {message.isWatermarked && (
                         <>
                           <VisibleWatermark
@@ -269,6 +270,7 @@ export default function ImageChat() {
                           </div>
                         </>
                       )}
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
